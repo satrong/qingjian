@@ -2,6 +2,7 @@
 //! 写组句 / 上屏在 [`update`]，读选区（翻译选中文字）在 [`selection`]，读光标前后文与输入框私密判定在 [`surrounding`]，候选窗口的定位锚点在 [`anchor`]。
 
 mod anchor;
+mod legacy;
 mod selection;
 mod surrounding;
 mod update;

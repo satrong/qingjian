@@ -283,6 +283,7 @@ TSF 原有数字 / OEM 标点 / 空格键码按当前布局用 `ToUnicodeEx` 解
 `InputSettings.context_before/context_after` 下发 `[predict] lookback/lookahead`，按 Unicode 字符取窗口（UTF-16 读取预留双单元，单侧上限 4096 字）；本地重排前文至少读 64 字。
 `ClientMessage::Surrounding` 保留 `text` 为前文、增加缺省为空的 `after`，旧 DLL 仍能对话。Server `dispatch/surrounding` 缓存前后文并在回报到达时重发联想，后续按键复用；组句结束、切会话、部分上屏或进入私密时清除缓存。
 读不到也回报空文本，私密输入框不读取；日志只记前后文字数。验证新读取行为需同时更新 Server 与 DLL，并重启加载旧 DLL 的应用。
+Windows 10 经典记事本的标准 `Edit` 控件可能在 TSF 中双向 `Shift` 成功却移动 0 个单元。两侧均为空时，`com/edit/legacy` 只对当前文档内、当前线程的 Unicode `Edit` 控件读取 `EM_GETSEL` 与窗口文本，仍按观察窗口截取；拒绝密码样式和非零密码掩码。整段拷贝上限 1 Mi UTF-16 单元，超过则放弃兼容读取，避免大文档阻塞输入。选区偏移用 32 位输出参数，不能拆消息返回值的两个 16 位字段（[EM_GETSEL](https://learn.microsoft.com/en-us/windows/win32/controls/em-getsel)）。
 
 连不上 Server 时 DLL 自己拉起它（`tsf/src/com/service/launch.rs`）：`ShellExecuteW` 起与 DLL 同目录的 `qingjian-server.exe`
 （`uiAccess=true` 的 exe 用 `CreateProcess` 报 740），进程内 5 秒冷却 + 跨进程命名互斥体防止砸出一串 Server；

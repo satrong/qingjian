@@ -30,6 +30,8 @@ pub(crate) fn input_context(
     before: usize,
     after: usize,
 ) -> InputContext {
+    let before = before.clamp(qingjian_core::RESCORE_CONTEXT_CHARS, MAX_CONTEXT_CHARS);
+    let after = after.min(MAX_CONTEXT_CHARS);
     let Some(range) = selection_range(context, ec) else {
         return InputContext::default();
     };
@@ -40,17 +42,19 @@ pub(crate) fn input_context(
             ..InputContext::default()
         };
     }
-    InputContext {
+    let input = InputContext {
         private: false,
-        before: text_near_selection(
-            &range,
-            ec,
-            before.max(qingjian_core::RESCORE_CONTEXT_CHARS),
-            true,
-        )
-        .unwrap_or_default(),
+        before: text_near_selection(&range, ec, before, true).unwrap_or_default(),
         after: text_near_selection(&range, ec, after, false).unwrap_or_default(),
+    };
+    if input.before.is_empty()
+        && input.after.is_empty()
+        && let Some(legacy) = super::legacy::input_context(context, before, after)
+    {
+        crate::com::log::log("TSF 未提供上下文，使用标准 Edit 控件上下文");
+        return legacy;
     }
+    input
 }
 
 fn text_near_selection(
