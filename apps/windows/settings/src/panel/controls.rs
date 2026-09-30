@@ -109,6 +109,22 @@ pub(super) fn field(label: &str, hint: &str, control: impl Into<View>) -> View {
     }
 }
 
+/// 一整项，控件占满标签右侧的水平剩余空间：「标签 + 控件」一行，下接说明（`hint` 为空则不加）。
+pub(super) fn field_wide(label: &str, hint: &str, control: impl GridChildExt + Into<View>) -> View {
+    let row = Grid::new()
+        .columns([GridLength::Pixel(LABEL_WIDTH), GridLength::STAR])
+        .column_spacing(12.0)
+        .children([
+            TextBlock::new().text(label).grid_column(0).into(),
+            control.grid_column(1).into(),
+        ]);
+    if hint.is_empty() {
+        row
+    } else {
+        StackPanel::new().spacing(4.0).children([row, note(hint)])
+    }
+}
+
 /// 在 `(界面名, 配置写法)` 列表里找 `value` 的下标，找不到取 0。
 pub(super) fn index_of(options: &[(&str, &str)], value: &str) -> usize {
     options.iter().position(|(_, v)| *v == value).unwrap_or(0)

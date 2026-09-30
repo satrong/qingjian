@@ -37,12 +37,16 @@ impl Component for Settings {
             dictionary_status: String::new(),
             families: qingjian_render::system_fonts::families(),
             font_query: None,
+            prompt_box_mounted: false,
         }
     }
 
     fn update(&mut self, message: Message, context: &ComponentContext<Self>) {
         match message {
             Message::Navigate(Some(tag)) => {
+                if self.page != tag {
+                    self.prompt_box_mounted = false;
+                }
                 self.page = tag;
                 // 上一页的导入提示不跟着过来
                 self.notice.clear();
@@ -142,7 +146,12 @@ impl Component for Settings {
                 self.save("predict", "slots", slots);
             }
             Message::CloudSentence(on) => self.save("predict", "sentence", on),
-            Message::CloudSystemPrompt(value) => self.save("predict", "system_prompt", value),
+            // 框还没填真正的内容时收到的变更是空文本挂载的副产品，不能写回去冲掉已存的提示词
+            Message::CloudSystemPrompt(value) if self.prompt_box_mounted => {
+                self.save("predict", "system_prompt", value);
+            }
+            Message::CloudSystemPrompt(_) => {}
+            Message::CloudPromptBoxMounted => self.prompt_box_mounted = true,
             Message::TestConnection => {
                 if matches!(self.cloud_status, CloudStatus::Testing) {
                     return;

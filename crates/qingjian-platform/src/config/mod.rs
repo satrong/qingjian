@@ -626,6 +626,23 @@ mod tests {
     }
 
     #[test]
+    fn set_value_roundtrips_multiline_string() {
+        let path = std::env::temp_dir().join("qingjian-config-multiline-test.toml");
+        let _ = std::fs::remove_file(&path);
+        for text in [
+            "第一段\n\n第二段\n\n\n第三段",
+            "第一段\r\r第二段\r\r\r第三段",
+            "第一段\r\n\r\n第二段",
+        ] {
+            Config::set_value(&path, "predict", "system_prompt", text).unwrap();
+            let raw = std::fs::read_to_string(&path).unwrap();
+            let config = Config::load(&path).unwrap_or_else(|e| panic!("{e}\n{raw}"));
+            assert_eq!(config.predict.system_prompt, text, "{raw}");
+        }
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
     fn set_bool_keeps_comments_and_flips_only_that_key() {
         let path = std::env::temp_dir().join("qingjian-config-set-bool-test.toml");
         std::fs::write(

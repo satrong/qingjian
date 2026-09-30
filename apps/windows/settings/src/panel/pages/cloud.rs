@@ -4,7 +4,7 @@ use qingjian_predict::{ConnectionTest, PredictConfig};
 use windows_reactor::*;
 
 use crate::panel::cloud_status::CloudStatus;
-use crate::panel::controls::{field, labeled, note, page};
+use crate::panel::controls::{field, field_wide, labeled, note, page};
 use crate::panel::{Message, Settings};
 
 /// 后台跑一次连通性测试，轮询到有结果或被取消。
@@ -39,6 +39,17 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
         CloudStatus::Testing => "测试中…".to_owned(),
         CloudStatus::Ok(message) => message.clone(),
         CloudStatus::Failed(message) => format!("失败：{message}"),
+    };
+    // 多行文字要等框挂载完（AcceptsReturn 生效）后再填，见 `Settings::prompt_box_mounted`
+    let prompt_text = if settings.prompt_box_mounted {
+        p.system_prompt.clone()
+    } else {
+        let sender = context.sender();
+        context.use_effect("cloud-prompt-box-mounted", (), move || {
+            sender.send(Message::CloudPromptBoxMounted);
+            None
+        });
+        String::new()
     };
     let rows = [
         field(
@@ -85,16 +96,16 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .text(p.model.clone())
                 .on_text_changed(context.callback(Message::CloudModel)),
         ),
-        field(
+        field_wide(
             "联想提示词",
             "填写后整个替换内置的联想提示词（问字、翻译不受影响），最多 4000 字。需要自己写清输出格式：{\"words\": [{\"text\": \"词\", \"pinyin\": \"拼音\"}], \"sentence\": \"整句\" 或 null}，格式不对会被当作没有结果。留空则用内置提示词。",
+            // 水平填满标签右侧的剩余空间；高度固定，内容超出时框内出现竖向滚动条
             TextBox::new()
-                .text(p.system_prompt.clone())
+                .text(prompt_text)
                 .accepts_return(true)
                 .text_wrapping(TextWrapping::Wrap)
                 .placeholder_text("留空使用内置提示词")
-                .width(360.0)
-                .min_height(120.0)
+                .height(200.0)
                 .on_text_changed(context.callback(Message::CloudSystemPrompt)),
         ),
         field(

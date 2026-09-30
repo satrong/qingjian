@@ -46,6 +46,8 @@ pub(crate) enum Message {
     CloudSlots(Option<f64>),
     CloudSentence(bool),
     CloudSystemPrompt(String),
+    /// 提示词框已挂载（且 `AcceptsReturn` 已生效），可以把多行文字填进去。
+    CloudPromptBoxMounted,
     TestConnection,
     CloudTestDone(Result<String, String>),
 

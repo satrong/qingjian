@@ -65,6 +65,11 @@ pub(crate) struct Settings {
 
     /// 「字体」框里正在敲的文字；`None` 显示配置里的值。
     font_query: Option<String>,
+
+    /// 云服务页的「联想提示词」框是否已挂载完：WinUI 的 `TextBox` 在 `AcceptsReturn` 生效前
+    /// 设 `Text` 会只留第一行，而 Reactor 挂载时先设 `Text` 后设 `AcceptsReturn`，
+    /// 所以先以空文本挂载，挂载后再填真正的内容。每次进入云服务页重置。
+    prompt_box_mounted: bool,
 }
 
 impl Settings {
