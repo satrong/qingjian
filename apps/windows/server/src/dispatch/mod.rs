@@ -3,6 +3,8 @@
 //! 候选窗口输出在 [`candidates`]，状态条在 [`status`]，翻译选中文字在 [`translate`]，配置热加载在 [`reload`]，
 //! 本地整句模型在 [`rescore`]，形码码表在 [`code`]。
 
+#[cfg(windows)]
+mod accessibility;
 mod candidates;
 mod code;
 mod composed;
@@ -60,6 +62,10 @@ pub struct Router {
 
     /// 当前组句的应用前后文；结束、失焦或部分上屏后作废，等待 DLL 重新读取。
     surrounding: Option<SurroundingText>,
+
+    /// 无障碍兜底只在后台读；清上下文时一并丢弃接收端。
+    #[cfg(windows)]
+    accessibility: Option<accessibility::Pending>,
 
     /// 「翻译选中文字」进行态；与 `composed` 互斥。
     translation: Option<Translation>,
@@ -138,6 +144,8 @@ impl Router {
             focused: None,
             composed: None,
             surrounding: None,
+            #[cfg(windows)]
+            accessibility: None,
             translation: None,
             pending_selection: None,
             selection_seq: 0,

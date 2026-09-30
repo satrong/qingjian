@@ -15,6 +15,55 @@ impl Router {
         {
             return;
         }
+        self.clear_surrounding();
+        #[cfg(windows)]
+        if text.is_empty() && after.is_empty() && self.engine.prediction_enabled() {
+            let policy = self.engine.prediction_policy();
+            self.accessibility = super::accessibility::request(
+                session,
+                self.focused_app(),
+                policy.before.max(qingjian_core::RESCORE_CONTEXT_CHARS),
+                policy.after,
+            );
+        }
+        self.apply_surrounding(text, after);
+    }
+
+    pub(super) fn clear_surrounding(&mut self) {
+        self.surrounding = None;
+        #[cfg(windows)]
+        {
+            self.accessibility = None;
+        }
+    }
+
+    #[cfg(windows)]
+    pub(super) fn poll_accessibility(&mut self) {
+        if self.engine.composition().is_empty() || self.engine.is_private() {
+            self.accessibility = None;
+            return;
+        }
+        let Some(result) = self
+            .accessibility
+            .as_ref()
+            .and_then(|pending| pending.poll(self.focused))
+        else {
+            return;
+        };
+        self.accessibility = None;
+        if let Some(input) = result
+            && (!input.before.is_empty() || !input.after.is_empty())
+        {
+            tracing::debug!(
+                before = input.before.chars().count(),
+                after = input.after.chars().count(),
+                "钉钉无障碍上下文读取完成"
+            );
+            self.apply_surrounding(input.before, input.after);
+        }
+    }
+
+    fn apply_surrounding(&mut self, text: String, after: String) {
         self.surrounding = Some(SurroundingText {
             before: text.clone(),
             after,

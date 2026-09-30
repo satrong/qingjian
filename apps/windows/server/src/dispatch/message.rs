@@ -88,6 +88,7 @@ impl Router {
             ClientMessage::HideCandidates { session } => {
                 // 组句在 DLL 侧结束（应用终止组句 / 翻译评审失焦）：只收窗口；缓冲留给下一键的 Commit 清。
                 if self.focused == Some(session) {
+                    self.clear_surrounding();
                     self.end_translation();
                     self.hide_candidate_window();
                 }
@@ -155,7 +156,7 @@ impl Router {
         let (commit, outcome) = match self.apply_key(&event) {
             Effect::Changed(commit) => {
                 if commit.is_some() {
-                    self.surrounding = None;
+                    self.clear_surrounding();
                 }
                 self.recompose();
                 (commit, KeyOutcome::Consumed)

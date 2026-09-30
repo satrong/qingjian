@@ -19,7 +19,7 @@ impl Router {
         self.sentence = None;
         self.prediction_failed = false;
         if self.engine.composition().is_empty() {
-            self.surrounding = None;
+            self.clear_surrounding();
             self.composed = None;
             self.cancel_prediction();
             self.stop_rescoring();

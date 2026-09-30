@@ -154,7 +154,7 @@ if (-not $SkipRegister) {
 }
 
 Write-Host '== 起 Server' -ForegroundColor Cyan
-Start-Process -FilePath (Join-Path $WorkDir 'qingjian-server.exe') -WorkingDirectory $WorkDir
+Start-Process -FilePath (Join-Path $WorkDir 'qingjian-server.exe') -WorkingDirectory $WorkDir -WindowStyle Hidden
 Start-Sleep -Seconds 3
 
 Write-Host ''

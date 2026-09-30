@@ -284,6 +284,8 @@ TSF 原有数字 / OEM 标点 / 空格键码按当前布局用 `ToUnicodeEx` 解
 `InputSettings.context_before/context_after` 下发 `[predict] lookback/lookahead`，按 Unicode 字符取窗口（UTF-16 读取预留双单元，单侧上限 4096 字）；本地重排前文至少读 64 字。
 `ClientMessage::Surrounding` 保留 `text` 为前文、增加缺省为空的 `after`，旧 DLL 仍能对话。Server `dispatch/surrounding` 缓存前后文并在回报到达时重发联想，后续按键复用；组句结束、切会话、部分上屏或进入私密时清除缓存。
 读不到也回报空文本，私密输入框不读取；日志只记前后文字数。验证新读取行为需同时更新 Server 与 DLL，并重启加载旧 DLL 的应用。
+钉钉聊天框的 TSF 双向移动量为 0，Win32 窗口类名为 `Qt51511QWindowIcon`；独立 UIA 探针能从 `im_chat::InputRichTextEdit` 的 TextPattern 取得选区两侧文字。Server `dispatch/accessibility` 在已启用云联想、非私密且 TSF 两侧均为空时，限 `DingTalk.exe` 的这个聚焦控件异步读取；核对前台进程、焦点、选区与密码标记，单侧最多 4096 字。不改协议，旧的前后文 DLL 也能使用。
+UIA 在独立 MTA 线程运行，最多一个在飞调用，500 ms 之后丢弃回包（提供方卡住不再增建线程）；组句结束、部分上屏、失焦、私密及新 TSF 回包会丢弃接收端。独立探针 `apps/windows/scripts/probe-surrounding.ps1` 只记录长度与测试文本是否匹配，用 `powershell -Mta -File` 运行，不发送按键或云请求。
 Windows 10 经典记事本的标准 `Edit` 控件可能在 TSF 中双向 `Shift` 成功却移动 0 个单元。两侧均为空时，`com/edit/legacy` 只对当前文档内、当前线程的 Unicode `Edit` 控件读取 `EM_GETSEL` 与窗口文本，仍按观察窗口截取；拒绝密码样式和非零密码掩码。整段拷贝上限 1 Mi UTF-16 单元，超过则放弃兼容读取，避免大文档阻塞输入。选区偏移用 32 位输出参数，不能拆消息返回值的两个 16 位字段（[EM_GETSEL](https://learn.microsoft.com/en-us/windows/win32/controls/em-getsel)）。
 
 连不上 Server 时 DLL 自己拉起它（`tsf/src/com/service/launch.rs`）：`ShellExecuteW` 起与 DLL 同目录的 `qingjian-server.exe`

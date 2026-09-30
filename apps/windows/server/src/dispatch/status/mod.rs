@@ -35,6 +35,10 @@ impl Router {
     }
 
     pub(super) fn handle_ime_switched(&mut self) {
+        #[cfg(windows)]
+        {
+            self.accessibility = None;
+        }
         self.ime_active = false;
         self.reconcile_status();
     }
