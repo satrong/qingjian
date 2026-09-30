@@ -18,6 +18,9 @@ pub struct EngineClient<S> {
 
     /// 上次报给 Server 的私密状态；`None` 是还没报过（Server 按不私密起算）。
     private: Option<bool>,
+
+    /// Server 下发的上下文观察窗口（字符数）。
+    context_window: (usize, usize),
 }
 
 impl<S: Read + Write> EngineClient<S> {
@@ -45,6 +48,7 @@ impl<S: Read + Write> EngineClient<S> {
                 stream,
                 session,
                 private: None,
+                context_window: (input.context_before, input.context_after),
             },
             input,
         ))
@@ -133,11 +137,17 @@ impl<S: Read + Write> EngineClient<S> {
         }
     }
 
-    /// 组句起始时把应用光标前的文字送给 Server（本地整句模型的前文）。不回话。
-    pub fn surrounding(&mut self, text: String) -> Result<(), ClientError> {
+    /// 最近一次配置同步给出的前后文观察窗口（Unicode 字符数）。
+    pub fn context_window(&self) -> (usize, usize) {
+        self.context_window
+    }
+
+    /// 把应用光标前后文送给 Server。不回话，空文本也要发以清除旧上下文。
+    pub fn surrounding(&mut self, text: String, after: String) -> Result<(), ClientError> {
         self.send(&ClientMessage::Surrounding {
             session: self.session,
             text,
+            after,
         })
     }
 
@@ -173,11 +183,14 @@ impl<S: Read + Write> EngineClient<S> {
                 input,
                 indicator,
                 ..
-            } => Ok(ModeSyncReply {
-                english,
-                input,
-                indicator,
-            }),
+            } => {
+                self.context_window = (input.context_before, input.context_after);
+                Ok(ModeSyncReply {
+                    english,
+                    input,
+                    indicator,
+                })
+            }
             _ => Err(ClientError::Unexpected("expected mode sync")),
         }
     }

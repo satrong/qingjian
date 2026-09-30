@@ -13,13 +13,14 @@ mod reload;
 mod rescore;
 mod session;
 mod status;
+mod surrounding;
 mod translate;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use qingjian_core::Engine;
+use qingjian_core::{Engine, SurroundingText};
 use qingjian_platform::LocalModelConfig;
 use qingjian_platform::protocol::{
     ClientMessage, Frame, IndicatorState, InputSettings, ScreenRect, ServerMessage, SessionId,
@@ -56,6 +57,9 @@ pub struct Router {
 
     /// 当前组句的展示状态；没在组句时为 `None`。
     composed: Option<Composed>,
+
+    /// 当前组句的应用前后文；结束、失焦或部分上屏后作废，等待 DLL 重新读取。
+    surrounding: Option<SurroundingText>,
 
     /// 「翻译选中文字」进行态；与 `composed` 互斥。
     translation: Option<Translation>,
@@ -130,6 +134,7 @@ impl Router {
             sessions: HashMap::new(),
             focused: None,
             composed: None,
+            surrounding: None,
             translation: None,
             pending_selection: None,
             selection_seq: 0,
@@ -160,6 +165,8 @@ impl Router {
             switch_mode: self.config.switch_mode,
             english_mode: self.config.english_mode,
             shift_letter_compose: self.config.shift_letter_compose,
+            context_before: self.engine.prediction_policy().before,
+            context_after: self.engine.prediction_policy().after,
         }
     }
 

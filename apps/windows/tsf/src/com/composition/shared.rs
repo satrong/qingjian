@@ -123,7 +123,7 @@ impl Shared {
 
     /// 组句结束（应用终止组句 / 断线 / 失焦上屏）：不再当作在组句，并让 Server 收候选窗口。
     pub(crate) fn end_composing(&self) {
-        self.composing.set(false);
+        self.set_composing(false);
         self.translating.set(false);
         self.hide_candidates();
     }

@@ -15,6 +15,9 @@ mod screen_rect;
 mod server;
 mod session;
 
+#[cfg(test)]
+mod tests;
+
 /// 协议版本，DLL 开会话时带上。加消息 / 改字段语义时 +1，一个版本周期只升一次（本周期已升过就不再升；
 /// Linux 插件写死了这个数，升了一起改）；Server 只对不上时记警告（老 DLL 在没重启的
 /// 应用里还会活很久，serde 的缺省字段 / 忽略未知字段让两边仍能对话）。

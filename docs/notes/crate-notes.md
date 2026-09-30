@@ -278,6 +278,12 @@ TSF 原有数字 / OEM 标点 / 空格键码按当前布局用 `ToUnicodeEx` 解
 拼音显示位置（`[general] preedit`）在 Windows 上分两处落地：Server 把它读进 `RouterConfig.preedit` 并随 `Frame.preedit_mode`
 下发给 DLL，DLL（`com/service/key_sink.rs`）按 `inline()` 决定要不要放行内拼音，Server（`ui/candidates/render_data.rs::window_preedit`）
 按 `in_window()` 决定候选窗口顶部画不画拼音行；`window` 模式没有组句范围，光标矩形改从 `com/edit/anchor.rs::caret_rect`（当前选区）量。
+
+云联想的前后文由 TSF `com/edit/surrounding.rs` 在起组句及部分上屏后的异步编辑会话读取：分别以选区起点、终点为界，排除被替换的选中文字和行内拼音。
+`InputSettings.context_before/context_after` 下发 `[predict] lookback/lookahead`，按 Unicode 字符取窗口（UTF-16 读取预留双单元，单侧上限 4096 字）；本地重排前文至少读 64 字。
+`ClientMessage::Surrounding` 保留 `text` 为前文、增加缺省为空的 `after`，旧 DLL 仍能对话。Server `dispatch/surrounding` 缓存前后文并在回报到达时重发联想，后续按键复用；组句结束、切会话、部分上屏或进入私密时清除缓存。
+读不到也回报空文本，私密输入框不读取；日志只记前后文字数。验证新读取行为需同时更新 Server 与 DLL，并重启加载旧 DLL 的应用。
+
 连不上 Server 时 DLL 自己拉起它（`tsf/src/com/service/launch.rs`）：`ShellExecuteW` 起与 DLL 同目录的 `qingjian-server.exe`
 （`uiAccess=true` 的 exe 用 `CreateProcess` 报 740），进程内 5 秒冷却 + 跨进程命名互斥体防止砸出一串 Server；
 起完清掉重连退避，下一键就试。Server 只在登录时由「启动」文件夹拉起，中途挂了以前只能等下次登录。

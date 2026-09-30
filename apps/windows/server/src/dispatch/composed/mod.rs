@@ -15,6 +15,7 @@ impl Router {
         self.navigated = false;
         self.sentence = None;
         if self.engine.composition().is_empty() {
+            self.surrounding = None;
             self.composed = None;
             self.cancel_prediction();
             self.stop_rescoring();
@@ -30,7 +31,8 @@ impl Router {
                 let layout =
                     CandidateLayout::new(items, self.config.page_size, self.config.cloud_slots);
                 if self.engine.prediction_enabled() {
-                    self.engine.request_prediction(None, layout.local());
+                    self.engine
+                        .request_prediction(self.surrounding.clone(), layout.local());
                 }
                 Composed::Candidates {
                     preedit,

@@ -32,7 +32,7 @@ pub(crate) fn preedit_string(frame: &Frame) -> String {
 }
 
 /// 在编辑会话回调（持写锁 `ec`）里调：先落定 `commit`，再按 `preedit` 起 / 改 / 收组句，最后把光标位置报给 Server。
-/// 新起一段组句时顺手判输入框私密不私密（变了就告诉 Server）、把光标前的文字送给 Server（本地整句模型的前文）。
+/// 新起组句或部分上屏时判私密，并把前后文送给 Server。
 pub(crate) fn apply(
     shared: &Rc<Shared>,
     engine: &SharedClient,
@@ -46,20 +46,34 @@ pub(crate) fn apply(
     }
     // 一段组句里只问一次输入框状态。行内模式看组句刚起；`preedit = window` 模式应用里根本没有组句，
     // 得另用一个标记，否则每敲一键都要重读一遍光标前文、重报一次私密状态。
-    let report_input = !shared.has_composition() && !shared.context_reported();
+    let report_input = shared.composing()
+        && !shared.has_composition()
+        && (!shared.context_reported() || commit.is_some());
     if report_input {
         shared.set_context_reported(true);
     }
-    let input = report_input.then(|| input_context(context, ec));
+    let input = report_input.then(|| {
+        let (before, after) = engine
+            .try_borrow()
+            .ok()
+            .and_then(|guard| guard.as_ref().map(|client| client.context_window()))
+            .unwrap_or((64, 32));
+        input_context(context, ec, before, after)
+    });
     if preedit.is_empty() {
         end_composition(shared, ec)?;
     } else {
         update_preedit(shared, context, ec, preedit)?;
     }
-    if let Some(InputContext { private, before }) = input {
+    if let Some(InputContext {
+        private,
+        before,
+        after,
+    }) = input
+    {
         report_privacy(engine, private);
-        if let Some(before) = before {
-            report_surrounding(engine, before);
+        if !private {
+            report_surrounding(engine, before, after);
         }
     }
     report_caret(shared, engine, context, ec);
@@ -76,15 +90,18 @@ fn report_privacy(engine: &SharedClient, private: bool) {
     }
 }
 
-/// 把光标前文送给 Server；引擎正被别处借着（罕见）就算了，Server 退回会话历史。
-fn report_surrounding(engine: &SharedClient, before: String) {
-    let chars = before.chars().count();
+/// 把光标前后文送给 Server；日志只记长度，不记录应用正文。
+fn report_surrounding(engine: &SharedClient, before: String, after: String) {
+    let before_chars = before.chars().count();
+    let after_chars = after.chars().count();
     if let Ok(mut guard) = engine.try_borrow_mut()
         && let Some(client) = guard.as_mut()
     {
-        match client.surrounding(before) {
-            Ok(()) => super::log::log(&format!("送光标前文 {chars} 字")),
-            Err(error) => super::log::log(&format!("送光标前文失败: {error}")),
+        match client.surrounding(before, after) {
+            Ok(()) => super::log::log(&format!(
+                "送光标前文 {before_chars} 字、后文 {after_chars} 字"
+            )),
+            Err(error) => super::log::log(&format!("送光标前后文失败: {error}")),
         }
     }
 }

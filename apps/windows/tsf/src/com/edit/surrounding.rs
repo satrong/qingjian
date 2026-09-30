@@ -1,82 +1,103 @@
-//! 组句起始时读应用光标前的文字，给本地整句模型当前文（对应 macOS 壳的 `surrounding_text`），
-//! 顺手按输入范围判这个输入框私密不私密（[`private_input`]）。在起组句的那次读写会话里做（此时选区还是原来的插入点，
-//! 拼音还没插进去），不另开会话。
-
-use std::mem::ManuallyDrop;
+//! 在组句写入前读取选区两端的上下文，同时检查输入框的私密属性。
+//! 复用异步读写会话，不把被替换的选中文字或行内拼音包含在前后文中。
 
 use windows::Win32::System::Com::CoTaskMemFree;
 use windows::Win32::System::Variant::VT_UNKNOWN;
 use windows::Win32::UI::TextServices::{
     GUID_PROP_INPUTSCOPE, IS_ALPHANUMERIC_PIN, IS_NUMERIC_PASSWORD, IS_NUMERIC_PIN, IS_PASSWORD,
-    IS_PRIVATE, ITfContext, ITfInputScope, ITfRange, InputScope, TF_ANCHOR_START,
-    TF_DEFAULT_SELECTION, TF_SELECTION,
+    IS_PRIVATE, ITfContext, ITfInputScope, ITfRange, InputScope, TF_ANCHOR_END, TF_ANCHOR_START,
 };
 use windows::core::Interface;
 
-/// 往前读多少字（与 macOS 壳的 `RESCORE_LOOKBACK` 一致）。
-const LOOKBACK: i32 = 64;
+use super::anchor::selection_range;
 
-/// 起组句时对输入框的判断：私密不私密，以及不私密时光标前的文字。
+/// 限制单侧读取的内存与应用调用开销；Core 仍按用户观察窗口裁剪发送内容。
+const MAX_CONTEXT_CHARS: usize = 4096;
+
+#[derive(Default)]
 pub(crate) struct InputContext {
-    /// 输入范围声明了私密 / 密码 / PIN（[`SECRET_SCOPES`]）：不读前文，Server 侧不学不记不发云端。
+    /// 私密 / 密码 / PIN 输入框不读取、不发送上下文。
     pub(crate) private: bool,
 
-    /// 当前选区起点之前最多 [`LOOKBACK`] 个 UTF-16 单元的文本。私密、没有选区、读不到时为 `None`。
-    pub(crate) before: Option<String>,
+    pub(crate) before: String,
+
+    pub(crate) after: String,
 }
 
-/// 起组句时读一次：先判私密，不私密再读前文。
-pub(crate) fn input_context(context: &ITfContext, ec: u32) -> InputContext {
-    let Some(range) = selection_start(context, ec) else {
-        return InputContext {
-            private: false,
-            before: None,
-        };
+pub(crate) fn input_context(
+    context: &ITfContext,
+    ec: u32,
+    before: usize,
+    after: usize,
+) -> InputContext {
+    let Some(range) = selection_range(context, ec) else {
+        return InputContext::default();
     };
     if private_input(context, ec, &range) {
-        crate::com::log::log("私密输入框，不读光标前文");
+        crate::com::log::log("私密输入框，不读光标前后文");
         return InputContext {
             private: true,
-            before: None,
+            ..InputContext::default()
         };
     }
     InputContext {
         private: false,
-        before: text_before_caret(context, ec, range),
+        before: text_near_selection(
+            &range,
+            ec,
+            before.max(qingjian_core::RESCORE_CONTEXT_CHARS),
+            true,
+        )
+        .unwrap_or_default(),
+        after: text_near_selection(&range, ec, after, false).unwrap_or_default(),
     }
 }
 
-/// `range`（已折成插入点）之前最多 [`LOOKBACK`] 个 UTF-16 单元的文本；读不到 / 为空是 `None`。
-fn text_before_caret(context: &ITfContext, ec: u32, range: ITfRange) -> Option<String> {
-    let _ = context;
-    let mut shifted = 0i32;
-    unsafe { range.ShiftStart(ec, -LOOKBACK, &mut shifted, std::ptr::null()) }.ok()?;
-    if shifted == 0 {
-        return None;
+fn text_near_selection(
+    selection: &ITfRange,
+    ec: u32,
+    count: usize,
+    before: bool,
+) -> Option<String> {
+    let count = count.min(MAX_CONTEXT_CHARS);
+    if count == 0 {
+        return Some(String::new());
     }
-    let mut buf = [0u16; LOOKBACK as usize];
-    let mut fetched = 0u32;
+    let range = unsafe { selection.Clone() }.ok()?;
+    let mut shifted = 0;
+    // 每个 Unicode 字符至多占两个 UTF-16 单元，不能直接把字符数当作 Shift 的距离。
+    let units = (count * 2) as i32;
+    unsafe {
+        range
+            .Collapse(
+                ec,
+                if before {
+                    TF_ANCHOR_START
+                } else {
+                    TF_ANCHOR_END
+                },
+            )
+            .ok()?;
+        if before {
+            range
+                .ShiftStart(ec, -units, &mut shifted, std::ptr::null())
+                .ok()?;
+        } else {
+            range
+                .ShiftEnd(ec, units, &mut shifted, std::ptr::null())
+                .ok()?;
+        }
+    }
+    let mut buf = vec![0u16; units as usize];
+    let mut fetched = 0;
     unsafe { range.GetText(ec, 0, &mut buf, &mut fetched) }.ok()?;
     let text = String::from_utf16_lossy(&buf[..fetched as usize]);
-    (!text.is_empty()).then_some(text)
-}
-
-/// 选区折成起点（插入点）。
-fn selection_start(context: &ITfContext, ec: u32) -> Option<ITfRange> {
-    let mut selection = [TF_SELECTION::default()];
-    let mut fetched = 0u32;
-    unsafe {
-        context
-            .GetSelection(ec, TF_DEFAULT_SELECTION, &mut selection, &mut fetched)
-            .ok()?;
-    }
-    if fetched == 0 {
-        return None;
-    }
-    // GetSelection 移交 range 的所有权（ManuallyDrop），取出后由这里释放。
-    let range = unsafe { ManuallyDrop::take(&mut selection[0].range) }?;
-    unsafe { range.Collapse(ec, TF_ANCHOR_START) }.ok()?;
-    Some(range)
+    let skip = if before {
+        text.chars().count().saturating_sub(count)
+    } else {
+        0
+    };
+    Some(text.chars().skip(skip).take(count).collect())
 }
 
 /// 算作私密的输入范围：密码 / PIN 之外还有 `IS_PRIVATE`——Chromium（Edge / Chrome）给密码框与无痕窗口里所有输入框报的

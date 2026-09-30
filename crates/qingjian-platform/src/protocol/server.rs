@@ -24,6 +24,14 @@ pub struct InputSettings {
     /// 按住 Shift 敲的字母吃不吃：缺省交给应用，开着时送 Server 起一段组句（`⇧C` 接 `pan` 出「C盘」）。
     #[serde(default)]
     pub shift_letter_compose: bool,
+
+    /// 云联想需要的光标前字符数；DLL 另保证本地整句模型的前文窗口。
+    #[serde(default = "default_context_before")]
+    pub context_before: usize,
+
+    /// 云联想需要的光标后字符数。
+    #[serde(default = "default_context_after")]
+    pub context_after: usize,
 }
 
 impl Default for InputSettings {
@@ -32,8 +40,18 @@ impl Default for InputSettings {
             switch_mode: SwitchKeys::default(),
             english_mode: true,
             shift_letter_compose: false,
+            context_before: default_context_before(),
+            context_after: default_context_after(),
         }
     }
+}
+
+fn default_context_before() -> usize {
+    64
+}
+
+fn default_context_after() -> usize {
+    32
 }
 
 /// Server 发给 DLL 的消息。

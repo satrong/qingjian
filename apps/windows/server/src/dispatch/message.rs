@@ -56,9 +56,18 @@ impl Router {
                 tracing::debug!(?session, ?text, "焦点离开，结束组句");
                 Some(ServerMessage::Committed { session, text })
             }
-            ClientMessage::Surrounding { session, text } => {
-                tracing::trace!(?session, chars = text.chars().count(), "收到光标前文");
-                self.set_surrounding(session, text);
+            ClientMessage::Surrounding {
+                session,
+                text,
+                after,
+            } => {
+                tracing::trace!(
+                    ?session,
+                    before = text.chars().count(),
+                    after = after.chars().count(),
+                    "收到光标前后文"
+                );
+                self.set_surrounding(session, text, after);
                 None
             }
             ClientMessage::Privacy { session, private } => {
@@ -145,6 +154,9 @@ impl Router {
         }
         let (commit, outcome) = match self.apply_key(&event) {
             Effect::Changed(commit) => {
+                if commit.is_some() {
+                    self.surrounding = None;
+                }
                 self.recompose();
                 (commit, KeyOutcome::Consumed)
             }
