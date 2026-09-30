@@ -73,6 +73,9 @@ pub struct Router {
     /// 整句补全（preedit 右侧、Tab 上屏）；缓冲变化时清空。
     sentence: Option<String>,
 
+    /// 当前组句的云联想请求失败；下一次请求时清除。
+    prediction_failed: bool,
+
     /// 删候选后的屏幕提示，随下一帧下发、下一次按键清。
     notice: Option<String>,
 
@@ -139,6 +142,7 @@ impl Router {
             pending_selection: None,
             selection_seq: 0,
             sentence: None,
+            prediction_failed: false,
             notice: None,
             highlight: 0,
             navigated: false,

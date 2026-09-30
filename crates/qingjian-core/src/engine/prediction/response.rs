@@ -11,6 +11,9 @@ pub struct Prediction {
 
     /// 组句中的整句补全，替换整段拼音。
     pub sentence: Option<String>,
+
+    /// 云服务请求失败；与空的成功回复区分，供候选窗口提示。
+    pub failed: bool,
 }
 
 impl Prediction {

@@ -2,6 +2,9 @@
 
 mod state;
 
+#[cfg(test)]
+mod tests;
+
 use qingjian_core::{Candidate, CandidateLayout, CandidateList, CloudWord, Query};
 use qingjian_platform::protocol::{Frame, PROTOCOL_VERSION, PreeditKind, PreeditSegment};
 
@@ -14,6 +17,7 @@ impl Router {
         self.highlight = 0;
         self.navigated = false;
         self.sentence = None;
+        self.prediction_failed = false;
         if self.engine.composition().is_empty() {
             self.surrounding = None;
             self.composed = None;
@@ -60,6 +64,10 @@ impl Router {
         let Some(prediction) = self.engine.poll_prediction() else {
             return;
         };
+        if prediction.failed && self.translation.is_none() {
+            self.prediction_failed = true;
+            return;
+        }
         if self.translation.is_some() {
             match prediction.sentence {
                 Some(text) => {
@@ -86,6 +94,7 @@ impl Router {
     }
 
     pub(super) fn cancel_prediction(&mut self) {
+        self.prediction_failed = false;
         if self.engine.prediction_enabled() {
             self.engine.cancel_prediction();
         }
@@ -244,7 +253,10 @@ impl Router {
                     theme: self.config.theme,
                     aux_code_show: self.config.aux_code_show,
                     sentence: self.sentence.clone(),
-                    notice: self.notice.clone(),
+                    notice: self.notice.clone().or_else(|| {
+                        self.prediction_failed
+                            .then(|| "云联想失败，请在云服务中测试连接".to_owned())
+                    }),
                 }
             }
         }

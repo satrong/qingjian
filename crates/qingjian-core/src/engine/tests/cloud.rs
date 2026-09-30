@@ -21,6 +21,7 @@ fn question_mode_asks_the_cloud_and_shows_answers_unvalidated() {
             sequence: 1,
             words: vec![restated, answer],
             sentence: None,
+            failed: false,
         }],
         sentence: true,
     };
@@ -201,11 +202,13 @@ fn stale_predictions_are_dropped_and_accept_clears_composition() {
                     cloud("凯发", &["kai", "fa"]),
                 ],
                 sentence: Some("开发输入法".into()),
+                failed: false,
             },
             Prediction {
                 sequence: 1,
                 words: Vec::new(),
                 sentence: Some("旧结果".into()),
+                failed: false,
             },
         ],
     }));
@@ -230,6 +233,36 @@ fn stale_predictions_are_dropped_and_accept_clears_composition() {
 }
 
 #[test]
+fn only_the_current_request_reports_cloud_failure() {
+    let mut engine = engine().with_predictor(Box::new(EchoPredictor {
+        submitted: std::rc::Rc::new(std::cell::RefCell::new(Vec::new())),
+        sentence: false,
+        replies: vec![
+            Prediction {
+                sequence: 2,
+                failed: true,
+                ..Prediction::default()
+            },
+            Prediction {
+                sequence: 1,
+                failed: true,
+                ..Prediction::default()
+            },
+        ],
+    }));
+    engine.set_input("kaifa");
+    engine.request_prediction(None, &[]);
+    engine.request_prediction(None, &[]);
+
+    let prediction = engine.poll_prediction().unwrap();
+    assert_eq!(prediction.sequence, 2);
+    assert!(prediction.failed);
+    assert!(prediction.words.is_empty());
+    assert!(prediction.sentence.is_none());
+    assert_eq!(engine.poll_prediction(), None);
+}
+
+#[test]
 fn cloud_words_tolerate_typos_but_not_unrelated_words() {
     let submitted = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
     let mut engine = engine().with_predictor(Box::new(EchoPredictor {
@@ -242,6 +275,7 @@ fn cloud_words_tolerate_typos_but_not_unrelated_words() {
                 cloud("知道", &["zhi", "dao"]),
             ],
             sentence: None,
+            failed: false,
         }],
     }));
     engine.set_input("zhgdoima");
@@ -279,6 +313,7 @@ fn cloud_words_are_validated_against_abbreviated_pinyin() {
                 cloud("不是音节", &["zx", "tq", "a", "b"]),
             ],
             sentence: None,
+            failed: false,
         }],
     }));
     engine.set_input("zt");
@@ -426,6 +461,7 @@ fn traditional_mode_preserves_original_text_across_queries() {
                 sequence: 1,
                 words: vec![cloud("凯发", &["kai", "fa"])],
                 sentence: None,
+                failed: false,
             }],
         }))
         .with_learner(Box::new(WordLearner::default()));

@@ -84,6 +84,11 @@ impl Worker {
                 }
                 Err(error) => {
                     tracing::warn!(sequence = request.sequence, %error, "联想失败");
+                    let _ = self.responses.send(Prediction {
+                        sequence: request.sequence,
+                        failed: true,
+                        ..Prediction::default()
+                    });
                 }
             }
         }
@@ -107,6 +112,7 @@ impl Worker {
             sequence,
             words: reply.words,
             sentence: reply.sentence,
+            failed: false,
         });
     }
 }

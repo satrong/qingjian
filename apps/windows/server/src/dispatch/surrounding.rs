@@ -30,6 +30,7 @@ impl Router {
         if let Some(Composed::Candidates { layout, .. }) = self.composed.as_mut() {
             layout.set_cloud(Vec::new());
             self.sentence = None;
+            self.prediction_failed = false;
             self.engine
                 .request_prediction(self.surrounding.clone(), layout.local());
         }

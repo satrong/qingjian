@@ -35,8 +35,9 @@ mod tests {
     use windows::core::w;
 
     #[test]
+    #[ignore = "会加载或切换系统键盘布局，仅在隔离 Windows 测试环境中显式运行"]
     fn punctuation_and_digits_follow_layout() {
-        // 不加 KLF_ACTIVATE，不切换用户正在使用的布局。
+        // Windows 8 起即使不加 KLF_ACTIVATE，也会加载到系统；KLF_NOTELLSHELL 不再提供隔离。
         let us = unsafe { LoadKeyboardLayoutW(w!("00000409"), KLF_NOTELLSHELL) }.unwrap();
         let de = unsafe { LoadKeyboardLayoutW(w!("00000407"), KLF_NOTELLSHELL) }.unwrap();
         let mut state = [0; 256];
@@ -54,6 +55,7 @@ mod tests {
     /// 小键盘数字与运算符也要能解出字符：V 模式（表达式模式）里敲小键盘才会进缓冲区。
     /// 关掉 NumLock 时系统上报的 vk 是导航键（VK_INSERT / VK_END…），到不了这里。
     #[test]
+    #[ignore = "会加载或切换系统键盘布局，仅在隔离 Windows 测试环境中显式运行"]
     fn keypad_digits_and_operators_resolve() {
         let us = unsafe { LoadKeyboardLayoutW(w!("00000409"), KLF_NOTELLSHELL) }.unwrap();
         let mut state = [0; 256];
@@ -80,6 +82,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "会加载或切换系统键盘布局，仅在隔离 Windows 测试环境中显式运行"]
     fn dead_key_lookup_does_not_change_next_character() {
         let intl = unsafe { LoadKeyboardLayoutW(w!("00020409"), KLF_NOTELLSHELL) }.unwrap();
         let state = [0; 256];
@@ -108,6 +111,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "会加载或切换系统键盘布局，仅在隔离 Windows 测试环境中显式运行"]
     fn event_reads_thread_layout_and_keyboard_state() {
         use crate::com::key::event::to_key_event;
         use crate::com::service::TextService;
@@ -121,7 +125,7 @@ mod tests {
         let original_layout = unsafe { GetKeyboardLayout(0) };
         let mut original_state = [0; 256];
         unsafe { GetKeyboardState(&mut original_state) }.unwrap();
-        // 仅修改测试线程；即使断言失败，也先恢复布局和按键状态。
+        // 即使断言失败也恢复当前线程状态；这不会移除 LoadKeyboardLayoutW 加到系统的布局。
         let result = std::panic::catch_unwind(|| {
             let service = ComObject::new(TextService::new());
             let sink: ITfKeyEventSink = service.to_interface();

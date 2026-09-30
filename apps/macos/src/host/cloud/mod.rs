@@ -64,6 +64,7 @@ impl Host {
     /// 已发出联想请求：清掉旧结果，开始轮询。
     pub fn await_prediction(&mut self) {
         self.sentence = None;
+        self.status = None;
         self.monitor.start();
     }
 
@@ -72,6 +73,7 @@ impl Host {
         self.engine.cancel_prediction();
         self.monitor.stop();
         self.sentence = None;
+        self.status = None;
     }
 
     /// 定时器回调：结果到了就画上去。云端词补进第一页末尾，整句挂在 preedit 右侧。
@@ -79,6 +81,10 @@ impl Host {
         let Some(prediction) = self.engine.poll_prediction() else {
             if self.monitor.expired() {
                 self.monitor.stop();
+                if self.translation.is_none() && !self.engine.composition().is_empty() {
+                    self.status = Some("云联想失败，请在云服务中测试连接".to_owned());
+                    self.render();
+                }
             }
             return;
         };
@@ -103,6 +109,11 @@ impl Host {
             return;
         }
         if self.engine.composition().is_empty() {
+            return;
+        }
+        if prediction.failed {
+            self.status = Some("云联想失败，请在云服务中测试连接".to_owned());
+            self.render();
             return;
         }
         // 云端词补进第一页末尾（前面的本地候选不动），整句挂在 preedit 右侧；云端词没有译文，先补上。

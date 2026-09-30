@@ -1,4 +1,4 @@
-use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::time::Duration;
 
 use qingjian_core::{Prediction, PredictionPolicy, PredictionRequest, Predictor};
@@ -18,6 +18,9 @@ pub struct CloudPredictor {
 
     /// 从后台线程收结果。
     responses: Receiver<Prediction>,
+
+    /// 最近一次请求尚未收到结果的序号；后台线程退出时回报一次失败。
+    pending_sequence: Option<u64>,
 }
 
 impl CloudPredictor {
@@ -53,6 +56,7 @@ impl CloudPredictor {
             policy: config.policy(),
             requests,
             responses,
+            pending_sequence: None,
         })
     }
 }
@@ -63,13 +67,28 @@ impl Predictor for CloudPredictor {
     }
 
     fn submit(&mut self, request: PredictionRequest) {
+        self.pending_sequence = Some(request.sequence);
         if self.requests.send(request).is_err() {
             tracing::warn!("联想线程已退出，请求被丢弃");
         }
     }
 
     fn poll(&mut self) -> Option<Prediction> {
-        // Empty 与 Disconnected 都当没有：线程退出时已经记过日志
-        self.responses.try_recv().ok()
+        match self.responses.try_recv() {
+            Ok(prediction) => {
+                if self.pending_sequence == Some(prediction.sequence) {
+                    self.pending_sequence = None;
+                }
+                Some(prediction)
+            }
+            Err(TryRecvError::Empty) => None,
+            Err(TryRecvError::Disconnected) => {
+                self.pending_sequence.take().map(|sequence| Prediction {
+                    sequence,
+                    failed: true,
+                    ..Prediction::default()
+                })
+            }
+        }
     }
 }
