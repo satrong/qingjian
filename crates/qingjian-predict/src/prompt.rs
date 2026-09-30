@@ -1,5 +1,7 @@
 //! 提示词与回复解析。模型只输出约定的 JSON，其余一概不信；拼音校验在 Core 里再做一遍。
 
+use std::borrow::Cow;
+
 use qingjian_core::{CloudWord, PredictionKind, PredictionRequest};
 use serde::{Deserialize, Serialize};
 
@@ -73,11 +75,25 @@ text（选中的原文）、target_language（目标语言代码：zh 中文、e
 不要解释、不要加引号、不要加「译文：」之类的前缀。\
 输出 JSON：{\"sentence\": \"译文\"}";
 
-pub fn system_prompt(request: &PredictionRequest) -> &'static str {
+/// 自定义系统提示最多取这么多字符：它每个请求都要发，太长既费 token 又拖慢联想。
+pub const MAX_CUSTOM_PROMPT_CHARS: usize = 4000;
+
+/// 发给模型的系统提示。组句联想的提示词可以被用户在 `[predict] system_prompt` 里整个换掉
+/// （首尾空白忽略、取前 [`MAX_CUSTOM_PROMPT_CHARS`] 个字符，留空用内置的）；
+/// 换掉后模型的输出格式由用户的提示词负责，回复仍按 [`parse_reply`] 的约定解析，不合格式就当没有结果。
+/// 问字与翻译的输出格式各不相同，始终用内置提示词。
+pub fn system_prompt(request: &PredictionRequest, custom: &str) -> Cow<'static, str> {
     match request.kind {
-        PredictionKind::Compose => SYSTEM_PROMPT,
-        PredictionKind::Question => QUESTION_SYSTEM_PROMPT,
-        PredictionKind::Translate => TRANSLATE_SYSTEM_PROMPT,
+        PredictionKind::Compose => {
+            let custom = custom.trim();
+            if custom.is_empty() {
+                Cow::Borrowed(SYSTEM_PROMPT)
+            } else {
+                Cow::Owned(custom.chars().take(MAX_CUSTOM_PROMPT_CHARS).collect())
+            }
+        }
+        PredictionKind::Question => Cow::Borrowed(QUESTION_SYSTEM_PROMPT),
+        PredictionKind::Translate => Cow::Borrowed(TRANSLATE_SYSTEM_PROMPT),
     }
 }
 
@@ -399,12 +415,38 @@ mod tests {
     }
 
     #[test]
+    fn custom_prompt_replaces_the_compose_prompt_only() {
+        let compose = request("zhang'tao", true);
+        assert_eq!(
+            system_prompt(
+                &compose, "  
+ "
+            ),
+            SYSTEM_PROMPT
+        );
+        assert_eq!(
+            system_prompt(&compose, " 你是财务助手，只输出 JSON "),
+            "你是财务助手，只输出 JSON"
+        );
+
+        let long = "词".repeat(MAX_CUSTOM_PROMPT_CHARS + 100);
+        assert_eq!(
+            system_prompt(&compose, &long).chars().count(),
+            MAX_CUSTOM_PROMPT_CHARS
+        );
+
+        let mut question = request("san'ge'mu", false);
+        question.kind = PredictionKind::Question;
+        assert_eq!(system_prompt(&question, "自定义"), QUESTION_SYSTEM_PROMPT);
+    }
+
+    #[test]
     fn translate_requests_use_their_own_prompt_and_keep_the_translation() {
         let mut translate = request("", false);
         translate.kind = PredictionKind::Translate;
         translate.text = "我想去吃饭".to_owned();
         translate.target_language = "en".to_owned();
-        assert_eq!(system_prompt(&translate), TRANSLATE_SYSTEM_PROMPT);
+        assert_eq!(system_prompt(&translate, ""), TRANSLATE_SYSTEM_PROMPT);
         assert!(user_prompt(&translate).contains("\"target_language\":\"en\""));
         let reply = parse_reply(r#"{"sentence": "  I want to go eat.\n"}"#, &translate);
         assert_eq!(reply.sentence.as_deref(), Some("I want to go eat."));

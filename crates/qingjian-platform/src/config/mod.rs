@@ -321,6 +321,10 @@ base_url = "https://api.deepseek.com"
 model = "deepseek-v4-flash"
 # 推理强度（reasoning_effort）：none 关掉模型的思考，联想要快；留空则不发这个参数
 reasoning_effort = "none"
+# 自定义联想提示词：非空则整个替换内置的组句联想提示词（问字、翻译不受影响），最多 4000 字，多行可用 \n。
+# 要自己写清输入字段（letters / pinyin / before / after / local_candidates …）与输出格式
+# {"words": [{"text": "…", "pinyin": "…"}], "sentence": "…" 或 null}，格式不对会被当作没有结果；留空用内置的
+system_prompt = ""
 # 密钥：填在这里，或留空并设置 api_key_env 指定的环境变量（偏好设置里填的密钥写进配置同目录的 .env）
 # api_key = ""
 api_key_env = "QINGJIAN_API_KEY"
@@ -563,6 +567,14 @@ mod tests {
         assert_eq!(config.predict.model, "deepseek-v4-flash");
         assert_eq!(config.predict.reasoning_effort, "none");
         assert_eq!(config.predict.api_key_env, "QINGJIAN_API_KEY");
+        assert_eq!(config.predict.system_prompt, "");
+    }
+
+    #[test]
+    fn system_prompt_parses_multiline() {
+        let config: Config =
+            toml::from_str("[predict]\nsystem_prompt = \"我是医生\\n常打药名\"\n").unwrap();
+        assert_eq!(config.predict.system_prompt, "我是医生\n常打药名");
     }
 
     #[test]

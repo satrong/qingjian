@@ -88,6 +88,8 @@ TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
   前面的本地候选不挪；排布在 Core `CandidateLayout`）和整句补全（preedit 右侧，Tab）；上屏后不联想，本地历史不进请求。
   简拼（半数以上音节是缩写）的请求 `max_items = 0`，只求整句补全（`prediction::mostly_abbreviated`）：按声母凑出来的词大多是生造词，
   拼音校验又按首字母序列匹配放行缩写，拦不住；问字模式的答案不受这条限制。
+  `[predict] system_prompt` 非空则 `prompt::system_prompt` 用它（去首尾空白、取前 4000 字符）整个替换组句联想的内置提示词；
+  问字、翻译、释义兜底、「测试连接」不受影响。回复照旧走 `parse_reply` 与 Core 的拼音校验。
 - `CloudGlossFiller`：释义兜底（Core `GlossFiller` trait，与 Predictor 分开的线程与通道，攒 1.5 秒 / 8 个词发一次，问过不再问）：
   随包释义表没有的词库词 / 云端词上屏后入队，结果壳每秒 `Engine::poll_glosses` 经 `Translator::learn` 写进 `qingjian-translate::PersonalGlossary`
   （`user-glossary-<语言>.tsv`，`LayeredTranslator` 个人表优先）；随云联想开关一起开。

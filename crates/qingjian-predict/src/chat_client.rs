@@ -44,6 +44,9 @@ pub struct ChatClient {
 
     /// 接口关思考用的是哪种参数（按接口地址定）。
     thinking_switch: ThinkingSwitch,
+
+    /// 用户补充说明，追加在系统提示末尾。
+    system_prompt: String,
 }
 
 impl ChatClient {
@@ -57,15 +60,15 @@ impl ChatClient {
             timeout: Duration::from_millis(config.timeout_ms),
             reasoning_effort: parse_reasoning_effort(&config.reasoning_effort),
             thinking_switch: ThinkingSwitch::for_url(&config.base_url),
+            system_prompt: config.system_prompt.clone(),
         }
     }
 
     pub async fn complete(&self, request: &PredictionRequest) -> Result<Reply, PredictError> {
         let user = prompt::user_prompt(request);
         tracing::debug!(sequence = request.sequence, %user, "联想请求");
-        let content = self
-            .chat(prompt::system_prompt(request), &user, MAX_TOKENS)
-            .await?;
+        let system = prompt::system_prompt(request, &self.system_prompt);
+        let content = self.chat(&system, &user, MAX_TOKENS).await?;
         Ok(prompt::parse_reply(&content, request))
     }
 

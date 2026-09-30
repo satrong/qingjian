@@ -86,6 +86,18 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .on_text_changed(context.callback(Message::CloudModel)),
         ),
         field(
+            "联想提示词",
+            "填写后整个替换内置的联想提示词（问字、翻译不受影响），最多 4000 字。需要自己写清输出格式：{\"words\": [{\"text\": \"词\", \"pinyin\": \"拼音\"}], \"sentence\": \"整句\" 或 null}，格式不对会被当作没有结果。留空则用内置提示词。",
+            TextBox::new()
+                .text(p.system_prompt.clone())
+                .accepts_return(true)
+                .text_wrapping(TextWrapping::Wrap)
+                .placeholder_text("留空使用内置提示词")
+                .width(360.0)
+                .min_height(120.0)
+                .on_text_changed(context.callback(Message::CloudSystemPrompt)),
+        ),
+        field(
             "API 密钥",
             "只保存在这台电脑上，不会随配置文件导出，也不显示已填的值。留空则读环境变量 QINGJIAN_API_KEY。",
             PasswordBox::new()

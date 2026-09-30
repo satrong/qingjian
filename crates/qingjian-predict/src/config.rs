@@ -42,6 +42,11 @@ pub struct PredictConfig {
     /// 其余 minimal / low / medium / high / xhigh 照传；留空则不发（给不认这个参数的接口）。
     /// DeepSeek V4 这类默认带思考的模型不关会把 token 预算全花在思考上，正文为空。
     pub reasoning_effort: String,
+
+    /// 自定义组句联想的系统提示，非空则**整个替换**内置提示词（问字与翻译不受影响）。
+    /// 输入的 JSON 字段与输出的 `{"words": [...], "sentence": ...}` 格式要自己在里面写清，否则回复解析不出来。
+    /// 首尾空白忽略，最多取前 4000 个字符；留空用内置的。
+    pub system_prompt: String,
 }
 
 impl Default for PredictConfig {
@@ -59,6 +64,7 @@ impl Default for PredictConfig {
             slots: 2,
             sentence: true,
             reasoning_effort: "none".to_owned(),
+            system_prompt: String::new(),
         }
     }
 }
