@@ -99,7 +99,13 @@ impl ChatClient {
         let raw: serde_json::Value =
             tokio::time::timeout(self.timeout, self.client.chat().create_byot(body))
                 .await
-                .map_err(|_| PredictError::Timeout(self.timeout.as_millis() as u64))??;
+                .map_err(|_| PredictError::Timeout(self.timeout.as_millis() as u64))?
+                .inspect_err(|error| {
+                    // Display 只保留「发送失败」，Debug 才包含断连、重置等底层原因。
+                    if let async_openai::error::OpenAIError::Reqwest(source) = error {
+                        tracing::warn!(error = ?source, "云接口 HTTP 请求失败");
+                    }
+                })?;
         let response: CreateChatCompletionResponse = serde_json::from_value(raw.clone())?;
         let cut_off = response
             .choices

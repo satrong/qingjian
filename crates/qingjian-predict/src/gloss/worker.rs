@@ -1,6 +1,8 @@
 use std::collections::HashSet;
-use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
+use std::sync::mpsc::Sender;
 use std::time::{Duration, Instant};
+
+use tokio::sync::mpsc::UnboundedReceiver;
 
 use qingjian_core::{FilledGloss, Language};
 
@@ -20,7 +22,7 @@ const MAX_TOKENS: u32 = 600;
 /// 后台线程：攒词、发请求、回释义。
 pub struct GlossWorker {
     /// 请求入口。主线程 drop 掉发送端后线程自然退出。
-    requests: Receiver<(Language, String)>,
+    requests: UnboundedReceiver<(Language, String)>,
 
     /// 结果出口。
     responses: Sender<FilledGloss>,
@@ -34,7 +36,7 @@ pub struct GlossWorker {
 
 impl GlossWorker {
     pub fn new(
-        requests: Receiver<(Language, String)>,
+        requests: UnboundedReceiver<(Language, String)>,
         responses: Sender<FilledGloss>,
         client: ChatClient,
     ) -> Self {
@@ -47,13 +49,19 @@ impl GlossWorker {
     }
 
     /// 阻塞运行直到发送端全部关闭。
-    pub fn run(mut self) -> Result<(), PredictError> {
+    pub fn run(self) -> Result<(), PredictError> {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()?;
-        while let Ok(first) = self.requests.recv() {
-            let Some(batch) = self.collect(first) else {
-                return Ok(());
+        // 等待词条、攒批时也驱动 HTTP 连接任务，及时移除被对端关闭的空闲连接。
+        runtime.block_on(self.run_async());
+        Ok(())
+    }
+
+    async fn run_async(mut self) {
+        while let Some(first) = self.requests.recv().await {
+            let Some(batch) = self.collect(first).await else {
+                return;
             };
             // 一批里可能混着两种语言（中途切了学习语言）：按语言各发一次
             let mut languages: Vec<Language> = Vec::new();
@@ -68,23 +76,24 @@ impl GlossWorker {
                     .filter(|(l, _)| *l == language)
                     .map(|(_, w)| w.clone())
                     .collect();
-                self.ask(&runtime, language, words);
+                self.ask(language, words).await;
             }
         }
-        Ok(())
     }
 
     /// 从第一个词起攒一批：等到 [`BATCH_WAIT`] 或攒够 [`BATCH_SIZE`]；问过的跳过。发送端关闭返回 `None`。
-    fn collect(&mut self, first: (Language, String)) -> Option<Vec<(Language, String)>> {
-        let deadline = Instant::now() + BATCH_WAIT;
+    async fn collect(&mut self, first: (Language, String)) -> Option<Vec<(Language, String)>> {
+        let deadline = tokio::time::Instant::now() + BATCH_WAIT;
         let mut batch = Vec::with_capacity(BATCH_SIZE);
         self.take(&mut batch, first);
         while batch.len() < BATCH_SIZE {
-            let remaining = deadline.saturating_duration_since(Instant::now());
-            match self.requests.recv_timeout(remaining) {
-                Ok(item) => self.take(&mut batch, item),
-                Err(RecvTimeoutError::Timeout) => break,
-                Err(RecvTimeoutError::Disconnected) => return None,
+            if tokio::time::Instant::now() >= deadline {
+                break;
+            }
+            match tokio::time::timeout_at(deadline, self.requests.recv()).await {
+                Ok(Some(item)) => self.take(&mut batch, item),
+                Err(_) => break,
+                Ok(None) => return None,
             }
         }
         Some(batch)
@@ -96,14 +105,14 @@ impl GlossWorker {
         }
     }
 
-    fn ask(&self, runtime: &tokio::runtime::Runtime, language: Language, words: Vec<String>) {
+    async fn ask(&self, language: Language, words: Vec<String>) {
         if words.is_empty() {
             return;
         }
         let start = Instant::now();
         let system = prompt::system_prompt(language);
         let user = prompt::user_prompt(&words);
-        match runtime.block_on(self.client.chat(system, &user, MAX_TOKENS)) {
+        match self.client.chat(system, &user, MAX_TOKENS).await {
             Ok(content) => {
                 let filled = prompt::parse_reply(&content, language, &words);
                 tracing::info!(

@@ -84,6 +84,8 @@ TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
 ## crates/qingjian-predict
 
 - `CloudPredictor`：`Predictor` trait 的网络实现（async-openai，OpenAI 兼容接口，默认 DeepSeek），后台线程防抖 / 缓存 / 超时，`submit` / `poll` 非阻塞。
+  联想与释义 worker 都在一次 `block_on` 内运行完整循环，通过 Tokio 异步通道等待请求，防抖与攒批也异步等待，让 HTTP 连接任务在空闲期间持续处理对端断连。
+  不要在两次请求之间退出单线程 runtime 后同步 `recv`：服务端关闭空闲连接时，连接池来不及清理，下一次 POST 会复用失效连接并立即失败。HTTP 失败另记底层错误链。
   `PredictConfig` 是配置的 `[predict]` 分节。网络请求失败或后台线程退出时返回带原请求序号的 `Prediction { failed: true }`，Engine 照常丢弃过期结果，壳在候选窗口显示失败提示；正常空回复不提示。只在组句中联想，一次请求给云端词（容错校验后补进候选第一页末尾 `[predict] slots` 格，缺省 2，不预留不占位，
   前面的本地候选不挪；排布在 Core `CandidateLayout`）和整句补全（preedit 右侧，Tab）；上屏后不联想，本地历史不进请求。
   简拼（半数以上音节是缩写）的请求 `max_items = 0`，只求整句补全（`prediction::mostly_abbreviated`）：按声母凑出来的词大多是生造词，

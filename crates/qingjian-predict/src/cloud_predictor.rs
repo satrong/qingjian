@@ -1,5 +1,7 @@
-use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
+use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::time::Duration;
+
+use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 
 use qingjian_core::{Prediction, PredictionPolicy, PredictionRequest, Predictor};
 
@@ -14,7 +16,7 @@ pub struct CloudPredictor {
     policy: PredictionPolicy,
 
     /// 往后台线程发请求。
-    requests: Sender<PredictionRequest>,
+    requests: UnboundedSender<PredictionRequest>,
 
     /// 从后台线程收结果。
     responses: Receiver<Prediction>,
@@ -30,7 +32,7 @@ impl CloudPredictor {
             .resolve_api_key()
             .ok_or_else(|| PredictError::MissingApiKey(config.api_key_env.clone()))?;
         let client = ChatClient::new(config, api_key);
-        let (requests, request_rx) = mpsc::channel();
+        let (requests, request_rx) = unbounded_channel();
         let (response_tx, responses) = mpsc::channel();
         let worker = Worker::new(
             request_rx,

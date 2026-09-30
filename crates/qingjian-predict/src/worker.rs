@@ -1,7 +1,9 @@
 //! 后台线程：收请求、防抖、查缓存、发网络请求、回结果。
 
-use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
+use std::sync::mpsc::Sender;
 use std::time::{Duration, Instant};
+
+use tokio::sync::mpsc::UnboundedReceiver;
 
 use qingjian_core::{Prediction, PredictionRequest};
 
@@ -16,7 +18,7 @@ const CACHE_CAPACITY: usize = 64;
 
 pub struct Worker {
     /// 请求入口。主线程 drop 掉发送端后线程自然退出。
-    requests: Receiver<PredictionRequest>,
+    requests: UnboundedReceiver<PredictionRequest>,
 
     /// 结果出口。
     responses: Sender<Prediction>,
@@ -36,7 +38,7 @@ type Cached = Reply;
 
 impl Worker {
     pub fn new(
-        requests: Receiver<PredictionRequest>,
+        requests: UnboundedReceiver<PredictionRequest>,
         responses: Sender<Prediction>,
         client: ChatClient,
         debounce: Duration,
@@ -51,13 +53,19 @@ impl Worker {
     }
 
     /// 阻塞运行直到发送端全部关闭。
-    pub fn run(mut self) -> Result<(), PredictError> {
+    pub fn run(self) -> Result<(), PredictError> {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()?;
-        while let Ok(first) = self.requests.recv() {
-            let Some(request) = self.debounce(first) else {
-                return Ok(());
+        // 整个收件循环都要驱动 runtime，否则空闲期间 HTTP 连接任务无法处理对端断连。
+        runtime.block_on(self.run_async());
+        Ok(())
+    }
+
+    async fn run_async(mut self) {
+        while let Some(first) = self.requests.recv().await {
+            let Some(request) = self.debounce(first).await else {
+                return;
             };
             let key = PredictionCache::key(&request);
             if let Some(reply) = self.cache.get(&key) {
@@ -66,7 +74,7 @@ impl Worker {
                 continue;
             }
             let start = Instant::now();
-            match runtime.block_on(self.client.complete(&request)) {
+            match self.client.complete(&request).await {
                 Ok(reply) => {
                     tracing::info!(
                         sequence = request.sequence,
@@ -92,16 +100,15 @@ impl Worker {
                 }
             }
         }
-        Ok(())
     }
 
     /// 防抖：在窗口内持续收到新请求就一直等，只保留最后一个。发送端关闭返回 `None`。
-    fn debounce(&self, mut latest: PredictionRequest) -> Option<PredictionRequest> {
+    async fn debounce(&mut self, mut latest: PredictionRequest) -> Option<PredictionRequest> {
         loop {
-            match self.requests.recv_timeout(self.debounce) {
-                Ok(newer) => latest = newer,
-                Err(RecvTimeoutError::Timeout) => return Some(latest),
-                Err(RecvTimeoutError::Disconnected) => return None,
+            match tokio::time::timeout(self.debounce, self.requests.recv()).await {
+                Ok(Some(newer)) => latest = newer,
+                Err(_) => return Some(latest),
+                Ok(None) => return None,
             }
         }
     }

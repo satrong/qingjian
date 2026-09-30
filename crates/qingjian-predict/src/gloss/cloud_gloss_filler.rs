@@ -1,4 +1,6 @@
-use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::mpsc::{self, Receiver};
+
+use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 
 use qingjian_core::{FilledGloss, GlossFiller, Language};
 
@@ -10,7 +12,7 @@ use crate::error::PredictError;
 /// 走网络的释义兜底。构造时起一个后台线程，`request` / `poll` 都只碰通道，不阻塞。
 pub struct CloudGlossFiller {
     /// 往后台线程送词。
-    requests: Sender<(Language, String)>,
+    requests: UnboundedSender<(Language, String)>,
 
     /// 从后台线程收释义。
     responses: Receiver<FilledGloss>,
@@ -23,7 +25,7 @@ impl CloudGlossFiller {
             .resolve_api_key()
             .ok_or_else(|| PredictError::MissingApiKey(config.api_key_env.clone()))?;
         let client = ChatClient::new(config, api_key);
-        let (requests, request_rx) = mpsc::channel();
+        let (requests, request_rx) = unbounded_channel();
         let (response_tx, responses) = mpsc::channel();
         let worker = GlossWorker::new(request_rx, response_tx, client);
         std::thread::Builder::new()
