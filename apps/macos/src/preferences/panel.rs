@@ -16,6 +16,8 @@ define_class!(
     impl PreferencesPanel {
         #[unsafe(method(close))]
         fn close(&self) {
+            // 失焦才保存的控件（多行联想提示词框）没点别处就关窗会白改：先让在编辑的控件收尾
+            let _ = self.makeFirstResponder(None);
             let mtm = MainThreadMarker::from(self);
             NSApplication::sharedApplication(mtm)
                 .setActivationPolicy(NSApplicationActivationPolicy::Prohibited);

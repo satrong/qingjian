@@ -407,6 +407,12 @@ impl Host {
                     self.settings.set_value("predict", "model", text);
                 }
             }
+            // 提示词要支持清空（回退内置提示词），所以空文本也是合法值，只有没变过才落盘
+            (Setting::SystemPrompt, SettingValue::Text(text)) => {
+                if text != config.predict.system_prompt {
+                    self.settings.set_value("predict", "system_prompt", text);
+                }
+            }
             (Setting::ApiKey, SettingValue::Text(text)) => {
                 let text = text.trim();
                 // 密码框看不见内容，粘贴多了（带上了终端提示符、命令）用户发现不了；这种值写进 .env 还会让整个文件解析失败

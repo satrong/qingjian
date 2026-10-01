@@ -2,12 +2,14 @@
 //! 以及把控件接到 [`PreferencesTarget`] 的 `changed:` 上。页面文件只描述「放什么」，不重复这些细节。
 
 use objc2::rc::Retained;
+use objc2::runtime::ProtocolObject;
 use objc2::{MainThreadMarker, sel};
 use objc2_app_kit::{
-    NSButton, NSColor, NSControl, NSControlStateValueOff, NSControlStateValueOn, NSFont,
-    NSPopUpButton, NSSecureTextField, NSTextAlignment, NSTextField,
+    NSBorderType, NSButton, NSColor, NSControl, NSControlStateValueOff, NSControlStateValueOn,
+    NSFont, NSPopUpButton, NSScrollView, NSSecureTextField, NSTextAlignment, NSTextField,
+    NSTextView,
 };
-use objc2_foundation::{NSArray, NSRect, NSString};
+use objc2_foundation::{NSArray, NSPoint, NSRect, NSSize, NSString};
 use qingjian_core::Language;
 
 use super::key_recorder::KeyRecorder;
@@ -162,6 +164,41 @@ pub(super) fn row_recorder(
     layout.place(&recorder, CONTROL_X, 160.0, ROW_HEIGHT);
     layout.next_row(ROW_HEIGHT);
     recorder
+}
+
+/// 一行「标题 + 多行文本框」：框固定高度、内容超出走纵向滚动条，失焦时写回配置。
+/// 控件不是 `NSControl`、发不了 `changed:`，设置项先登记到 target 上（`register_text_view`）。
+pub(super) fn row_text_view(
+    layout: &mut Layout,
+    mtm: MainThreadMarker,
+    title: &str,
+    setting: Setting,
+    target: &PreferencesTarget,
+    height: f64,
+) -> Retained<NSTextView> {
+    let width = layout.control_width();
+    let label = caption(mtm, title);
+    layout.place(&label, PAGE_PADDING, LABEL_WIDTH, ROW_HEIGHT);
+    let scroll = NSScrollView::initWithFrame(mtm.alloc(), NSRect::ZERO);
+    scroll.setHasVerticalScroller(true);
+    scroll.setBorderType(NSBorderType::BezelBorder);
+    // 比整行窄 18 px 给边框与纵向滚动条留位：文本视图比裁剪视图宽时每行行尾会被盖住
+    let text = NSTextView::initWithFrame(
+        mtm.alloc(),
+        NSRect::new(NSPoint::ZERO, NSSize::new(width - 18.0, height)),
+    );
+    text.setRichText(false);
+    text.setVerticallyResizable(true);
+    text.setHorizontallyResizable(false);
+    text.setAutomaticQuoteSubstitutionEnabled(false);
+    text.setAutomaticDashSubstitutionEnabled(false);
+    // delegate 不保活：target 排在窗口字段的各页之后，活得比这个文本框久
+    text.setDelegate(Some(ProtocolObject::from_ref(target)));
+    scroll.setDocumentView(Some(&text));
+    target.register_text_view(setting, &text);
+    layout.place(&scroll, CONTROL_X, width, height);
+    layout.next_row(height);
+    text
 }
 
 pub(super) fn checkbox(

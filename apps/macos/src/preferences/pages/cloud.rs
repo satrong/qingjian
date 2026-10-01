@@ -1,14 +1,14 @@
-//! 「云服务」页：本地整句模型开关，云联想开关、云端词格数、接口地址 / 模型 / 密钥、测试连接。
+//! 「云服务」页：本地整句模型开关，云联想开关、云端词格数、接口地址 / 模型 / 联想提示词 / 密钥、测试连接。
 
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
-use objc2_app_kit::{NSButton, NSPopUpButton, NSSecureTextField, NSTextField};
+use objc2_app_kit::{NSButton, NSPopUpButton, NSSecureTextField, NSTextField, NSTextView};
 use objc2_foundation::NSString;
 use qingjian_platform::Config;
 
 use crate::preferences::controls::{
-    button, checkbox, note, row_checkbox, row_control, row_popup, secure_field, select,
-    set_checked, text_field,
+    button, checkbox, note, row_checkbox, row_control, row_popup, row_text_view, secure_field,
+    select, set_checked, text_field,
 };
 use crate::preferences::layout::{Layout, PAGE_PADDING, ROW_HEIGHT};
 use crate::preferences::setting::Setting;
@@ -16,6 +16,9 @@ use crate::preferences::target::PreferencesTarget;
 
 /// 云端词槽位弹出菜单的上限（配置文件里可以填更大，菜单只列到这）。
 const MAX_CLOUD_SLOTS: usize = 4;
+
+/// 「联想提示词」多行框的高度：提示词能看到大半屏，更长出滚动条。
+const PROMPT_HEIGHT: f64 = 200.0;
 
 pub struct CloudPage {
     /// 本地整句模型开关。
@@ -32,6 +35,9 @@ pub struct CloudPage {
 
     /// 模型名。
     model: Retained<NSTextField>,
+
+    /// 联想提示词（多行，失焦保存）。
+    prompt: Retained<NSTextView>,
 
     /// 密钥输入框，永远不回显已有值。
     api_key: Retained<NSSecureTextField>,
@@ -79,6 +85,19 @@ impl CloudPage {
         row_control(layout, mtm, "接口地址", &base_url);
         let model = text_field(mtm, Setting::Model, target);
         row_control(layout, mtm, "模型", &model);
+        let prompt = row_text_view(
+            layout,
+            mtm,
+            "联想提示词",
+            Setting::SystemPrompt,
+            target,
+            PROMPT_HEIGHT,
+        );
+        note(
+            layout,
+            mtm,
+            "填写后整个替换内置的联想提示词（问字、翻译不受影响），最多 4000 字，留空用内置的。需要自己写清输出格式：{\"words\": [{\"text\": \"词\", \"pinyin\": \"拼音\"}], \"sentence\": \"整句\" 或 null}，格式不对会被当作没有结果。文本框失焦时保存。",
+        );
         let api_key = secure_field(mtm, Setting::ApiKey, target);
         row_control(layout, mtm, "API 密钥", &api_key);
         note(
@@ -100,6 +119,7 @@ impl CloudPage {
             slots,
             base_url,
             model,
+            prompt,
             api_key,
             test,
         }
@@ -115,6 +135,7 @@ impl CloudPage {
         self.slots.setEnabled(cloud);
         self.base_url.setEnabled(cloud);
         self.model.setEnabled(cloud);
+        self.prompt.setEditable(cloud);
         self.api_key.setEnabled(cloud);
         self.test.setEnabled(cloud);
         select(&self.slots, Some(config.predict.slots.min(MAX_CLOUD_SLOTS)));
@@ -122,6 +143,8 @@ impl CloudPage {
             .setStringValue(&NSString::from_str(&config.predict.base_url));
         self.model
             .setStringValue(&NSString::from_str(&config.predict.model));
+        self.prompt
+            .setString(&NSString::from_str(&config.predict.system_prompt));
         self.api_key.setStringValue(&NSString::from_str(""));
         let hint = if key_present {
             "已设置，输入新值可替换"
