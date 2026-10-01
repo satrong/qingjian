@@ -47,6 +47,9 @@ pub struct ChatClient {
 
     /// 用户补充说明，追加在系统提示末尾。
     system_prompt: String,
+
+    /// 用户补充的请求体字段；构建客户端时解析好，请求时直接合并，同名键覆盖内置值。
+    extra_body: Option<serde_json::Map<String, serde_json::Value>>,
 }
 
 impl ChatClient {
@@ -61,6 +64,7 @@ impl ChatClient {
             reasoning_effort: parse_reasoning_effort(&config.reasoning_effort),
             thinking_switch: ThinkingSwitch::for_url(&config.base_url),
             system_prompt: config.system_prompt.clone(),
+            extra_body: parse_extra_body(&config.extra_body),
         }
     }
 
@@ -95,6 +99,10 @@ impl ChatClient {
         let mut body = serde_json::to_value(args.build()?)?;
         if matches!(self.reasoning_effort, Some(ReasoningEffort::None)) {
             self.thinking_switch.disable(&mut body);
+        }
+        // 合并放在最后：用户 JSON 覆盖包括 thinking 在内的一切内置值。
+        if let Some(extra) = &self.extra_body {
+            merge_extra_body(&mut body, extra);
         }
         let raw: serde_json::Value =
             tokio::time::timeout(self.timeout, self.client.chat().create_byot(body))
@@ -179,6 +187,37 @@ impl ThinkingSwitch {
     }
 }
 
+/// 配置里的额外参数解析成 JSON 对象；留空不发，不是对象或不是合法 JSON 记一条警告后忽略。
+fn parse_extra_body(value: &str) -> Option<serde_json::Map<String, serde_json::Value>> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    match serde_json::from_str::<serde_json::Value>(trimmed) {
+        Ok(serde_json::Value::Object(map)) => Some(map),
+        Ok(_) => {
+            tracing::warn!("extra_body 不是 JSON 对象，不发这些参数");
+            None
+        }
+        Err(error) => {
+            tracing::warn!(%error, "extra_body 不是合法 JSON，不发这些参数");
+            None
+        }
+    }
+}
+
+/// 把额外参数并进请求体：同名键覆盖内置值。
+fn merge_extra_body(
+    body: &mut serde_json::Value,
+    extra: &serde_json::Map<String, serde_json::Value>,
+) {
+    if let Some(fields) = body.as_object_mut() {
+        for (key, value) in extra {
+            fields.insert(key.clone(), value.clone());
+        }
+    }
+}
+
 fn host_of(base_url: &str) -> Option<String> {
     reqwest::Url::parse(base_url)
         .ok()
@@ -227,6 +266,29 @@ fn parse_reasoning_effort(value: &str) -> Option<ReasoningEffort> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn extra_body_parses_objects_and_ignores_the_rest() {
+        assert!(parse_extra_body("").is_none());
+        assert!(parse_extra_body("   ").is_none());
+        assert_eq!(
+            parse_extra_body(" {\"a\": 1} ").unwrap()["a"],
+            serde_json::json!(1)
+        );
+        assert!(parse_extra_body("[1, 2]").is_none());
+        assert!(parse_extra_body("not json").is_none());
+    }
+
+    #[test]
+    fn extra_body_overrides_built_in_fields() {
+        let mut body = serde_json::json!({ "model": "glm", "temperature": 0.3 });
+        let extra =
+            parse_extra_body(r#"{"temperature": 0.9, "thinking": {"type": "disabled"}}"#).unwrap();
+        merge_extra_body(&mut body, &extra);
+        assert_eq!(body["temperature"], 0.9);
+        assert_eq!(body["thinking"]["type"], "disabled");
+        assert_eq!(body["model"], "glm");
+    }
 
     #[test]
     fn reasoning_effort_parses_known_values_and_ignores_the_rest() {

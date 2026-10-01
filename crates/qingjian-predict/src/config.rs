@@ -47,6 +47,10 @@ pub struct PredictConfig {
     /// 输入的 JSON 字段与输出的 `{"words": [...], "sentence": ...}` 格式要自己在里面写清，否则回复解析不出来。
     /// 首尾空白忽略，最多取前 4000 个字符；留空用内置的。
     pub system_prompt: String,
+
+    /// 额外请求参数：JSON 对象文本，原样合并进发往接口的请求体，同名键覆盖内置值。
+    /// 留空不发；不是合法 JSON 对象时构建客户端记一条警告后整个忽略。
+    pub extra_body: String,
 }
 
 impl Default for PredictConfig {
@@ -65,6 +69,7 @@ impl Default for PredictConfig {
             sentence: true,
             reasoning_effort: "none".to_owned(),
             system_prompt: String::new(),
+            extra_body: String::new(),
         }
     }
 }
