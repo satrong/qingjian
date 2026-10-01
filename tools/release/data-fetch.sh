@@ -31,7 +31,7 @@ if [[ "${1:-}" != "--verify" ]]; then
     if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
       gh release download "$TAG" --repo "$REPO" --pattern "$f" --dir "$OUT"
     else
-      curl -fL --retry 3 -o "$OUT/$f" "https://github.com/$REPO/releases/download/$TAG/$f"
+      curl -fL --retry 3 -o "$OUT/$f" "https://gh-proxy.com/https://github.com/$REPO/releases/download/$TAG/$f"
     fi
   done
 fi
