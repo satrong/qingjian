@@ -413,6 +413,22 @@ impl Host {
                     self.settings.set_value("predict", "system_prompt", text);
                 }
             }
+            // 额外参数：留空是清空（合法）；非空时得是 JSON 对象，不是就不落盘并在状态行说清楚
+            (Setting::ExtraBody, SettingValue::Text(text)) => {
+                let text = text.trim();
+                if text != config.predict.extra_body {
+                    if text.is_empty()
+                        || serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(text)
+                            .is_ok()
+                    {
+                        self.settings.set_value("predict", "extra_body", text);
+                    } else {
+                        self.preferences
+                            .set_status("额外参数没有保存：不是合法的 JSON 对象");
+                        return;
+                    }
+                }
+            }
             (Setting::ApiKey, SettingValue::Text(text)) => {
                 let text = text.trim();
                 // 密码框看不见内容，粘贴多了（带上了终端提示符、命令）用户发现不了；这种值写进 .env 还会让整个文件解析失败

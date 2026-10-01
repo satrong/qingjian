@@ -20,6 +20,9 @@ const MAX_CLOUD_SLOTS: usize = 4;
 /// 「联想提示词」多行框的高度：提示词能看到大半屏，更长出滚动条。
 const PROMPT_HEIGHT: f64 = 200.0;
 
+/// 「额外参数」多行框的高度：一两条参数看得全，更长出滚动条。
+const EXTRA_BODY_HEIGHT: f64 = 72.0;
+
 pub struct CloudPage {
     /// 本地整句模型开关。
     local_model: Retained<NSButton>,
@@ -35,6 +38,9 @@ pub struct CloudPage {
 
     /// 模型名。
     model: Retained<NSTextField>,
+
+    /// 额外请求参数（多行 JSON，失焦保存）。
+    extra_body: Retained<NSTextView>,
 
     /// 联想提示词（多行，失焦保存）。
     prompt: Retained<NSTextView>,
@@ -85,6 +91,19 @@ impl CloudPage {
         row_control(layout, mtm, "接口地址", &base_url);
         let model = text_field(mtm, Setting::Model, target);
         row_control(layout, mtm, "模型", &model);
+        let extra_body = row_text_view(
+            layout,
+            mtm,
+            "额外参数",
+            Setting::ExtraBody,
+            target,
+            EXTRA_BODY_HEIGHT,
+        );
+        note(
+            layout,
+            mtm,
+            "原样合并进请求体的 JSON，同名键覆盖内置值，比如智谱关思考填 {\"thinking\": {\"type\": \"disabled\"}}。留空不发。文本框失焦时保存。",
+        );
         let prompt = row_text_view(
             layout,
             mtm,
@@ -119,6 +138,7 @@ impl CloudPage {
             slots,
             base_url,
             model,
+            extra_body,
             prompt,
             api_key,
             test,
@@ -135,6 +155,7 @@ impl CloudPage {
         self.slots.setEnabled(cloud);
         self.base_url.setEnabled(cloud);
         self.model.setEnabled(cloud);
+        self.extra_body.setEditable(cloud);
         self.prompt.setEditable(cloud);
         self.api_key.setEnabled(cloud);
         self.test.setEnabled(cloud);
@@ -143,6 +164,8 @@ impl CloudPage {
             .setStringValue(&NSString::from_str(&config.predict.base_url));
         self.model
             .setStringValue(&NSString::from_str(&config.predict.model));
+        self.extra_body
+            .setString(&NSString::from_str(&config.predict.extra_body));
         self.prompt
             .setString(&NSString::from_str(&config.predict.system_prompt));
         self.api_key.setStringValue(&NSString::from_str(""));

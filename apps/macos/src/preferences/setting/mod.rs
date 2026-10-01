@@ -105,6 +105,9 @@ pub enum Setting {
     /// `textDidEndEditing:` 直接带设置项写回，不走 tag（tag 仍参与往返测试）。
     SystemPrompt,
 
+    /// `[predict] extra_body`，「额外参数」多行文本框：失焦经 `textDidEndEditing:` 写回，同 SystemPrompt。
+    ExtraBody,
+
     /// 密钥，写到 `.env`。
     ApiKey,
 
@@ -217,6 +220,7 @@ impl Setting {
             Self::Model => 9,
             Self::ApiKey => 10,
             Self::SystemPrompt => 57,
+            Self::ExtraBody => 58,
             Self::OpenConfigFile => 11,
             Self::Layout => 12,
             Self::Preedit => 13,
@@ -284,6 +288,7 @@ impl Setting {
             9 => Self::Model,
             10 => Self::ApiKey,
             57 => Self::SystemPrompt,
+            58 => Self::ExtraBody,
             11 => Self::OpenConfigFile,
             12 => Self::Layout,
             13 => Self::Preedit,
@@ -368,6 +373,7 @@ mod tests {
             Setting::Model,
             Setting::ApiKey,
             Setting::SystemPrompt,
+            Setting::ExtraBody,
             Setting::OpenConfigFile,
             Setting::Layout,
             Setting::Preedit,
