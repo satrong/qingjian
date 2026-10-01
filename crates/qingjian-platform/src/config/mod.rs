@@ -325,6 +325,9 @@ reasoning_effort = "none"
 # 要自己写清输入字段（letters / pinyin / before / after / local_candidates …）与输出格式
 # {"words": [{"text": "…", "pinyin": "…"}], "sentence": "…" 或 null}，格式不对会被当作没有结果；留空用内置的
 system_prompt = ""
+# 额外请求参数：JSON 对象文本，原样合并进发往接口的请求体，同名键覆盖内置值。
+# 比如智谱关思考可填 {"thinking": {"type": "disabled"}}；留空不发
+extra_body = ""
 # 密钥：填在这里，或留空并设置 api_key_env 指定的环境变量（偏好设置里填的密钥写进配置同目录的 .env）
 # api_key = ""
 api_key_env = "QINGJIAN_API_KEY"
@@ -568,6 +571,7 @@ mod tests {
         assert_eq!(config.predict.reasoning_effort, "none");
         assert_eq!(config.predict.api_key_env, "QINGJIAN_API_KEY");
         assert_eq!(config.predict.system_prompt, "");
+        assert_eq!(config.predict.extra_body, "");
     }
 
     #[test]

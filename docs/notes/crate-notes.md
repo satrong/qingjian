@@ -92,6 +92,7 @@ TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
   拼音校验又按首字母序列匹配放行缩写，拦不住；问字模式的答案不受这条限制。
   `[predict] system_prompt` 非空则 `prompt::system_prompt` 用它（去首尾空白、取前 4000 字符）整个替换组句联想的内置提示词；
   问字、翻译、释义兜底、「测试连接」不受影响。回复照旧走 `parse_reply` 与 Core 的拼音校验。
+- `[predict] extra_body` 是 JSON 对象文本：`ChatClient::new` 解析成 `serde_json::Map`（空串不发，不是对象记一条警告后整个忽略），`chat` 构建完请求体（含 `ThinkingSwitch` 的智谱改写）后合并，同名键覆盖内置值；测试连接走同一 `chat` 自动生效。设计见 `docs/design/extra-body.md`。
 - `CloudGlossFiller`：释义兜底（Core `GlossFiller` trait，与 Predictor 分开的线程与通道，攒 1.5 秒 / 8 个词发一次，问过不再问）：
   随包释义表没有的词库词 / 云端词上屏后入队，结果壳每秒 `Engine::poll_glosses` 经 `Translator::learn` 写进 `qingjian-translate::PersonalGlossary`
   （`user-glossary-<语言>.tsv`，`LayeredTranslator` 个人表优先）；随云联想开关一起开。
