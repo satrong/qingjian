@@ -2828,8 +2828,10 @@ version = "0.1.1"
 dependencies = [
  "clap",
  "cosmic-text",
+ "serde",
  "thiserror 2.0.20",
  "tiny-skia",
+ "toml",
  "tracing",
  "tracing-subscriber",
  "windows",

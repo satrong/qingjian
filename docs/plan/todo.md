@@ -93,6 +93,14 @@
   中日字形回退按 locale、字体按需加载（不扫全系统）、灰度抗锯齿观感；首帧耗时与内存不劣于 GDI / AppKit。过了 Windows + macOS 一起换渲染器、主题文件 TOML；
   不过退回各平台各自渲染（Windows 走 D2D）。设置程序不自绘。
 
+- [ ] ★ **自定义皮肤**（2026-10-03 定向，见 [design/skin.md](../design/skin.md)）：皮肤文件 TOML 放配置目录 `themes/`，
+  一份自带 light / dark、缺分节缺字段逐层回退内置默认；`[general] skin` 叠加在 `theme` 三档之上（`ThemeMode` 与既有配置不动）。
+  P1 已完成：`qingjian-render` 的 `Color` 十六进制与 serde、`ThemeFile` / `ThemePatch` 解析合并、`preview --skin` 出图。
+  改 `dark: bool` 为吃解析好的 `Theme`（mac `bitmap/mod.rs`、win `painter/mod.rs` + `sync_theme` + `RenderSettings`），热加载把皮肤文件纳入 stat；
+  设置页加皮肤选择（mac 照 `font_picker` 的 popover + 列表，进 `tags_round_trip`）。
+  前置：opsz 补丁按字号分键（`rendering.md:93`）。皮肤只在青简渲染器下生效，不做 AppKit / GDI 降级映射；
+  不做图片 / 动图、不做 Linux、不做在线市场（`rendering.md:112` 的装饰层留到以后）。
+
 ## 三、其他平台
 
 - [~] Windows TSF（Phase 5）：真机自用中，候选窗已覆盖商店 / 任务栏搜索（`uiAccess` + 自签）。

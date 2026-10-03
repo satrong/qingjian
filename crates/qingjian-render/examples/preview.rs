@@ -1,6 +1,6 @@
 //! 离线预览：`cargo run --release -p qingjian-render --example preview -- --out target/render-preview`
 //! 把样例帧按浅 / 深色、竖 / 横排画成 PNG，与各平台原生候选窗截图并排比；`--measure` 只量几段文字的宽度与原生对数；
-//! 末尾列出验收行每个字形落到了哪家字体。不是日常工具，改渲染器时拿来核对。
+//! `--skin <path>` 换一份皮肤 TOML 出图，迭代皮肤配色；末尾列出验收行每个字形落到了哪家字体。不是日常工具，改渲染器时拿来核对。
 
 use std::path::PathBuf;
 use std::time::Instant;
@@ -8,7 +8,7 @@ use std::time::Instant;
 use clap::Parser;
 use qingjian_render::{
     FontLibrary, Frame, Layout, Preedit, PreeditSegment, PreeditStyle, Renderer, Row, Shadow,
-    StatusCell, Theme, Tone,
+    StatusCell, Theme, ThemeFile, Tone,
 };
 
 #[derive(Parser)]
@@ -32,6 +32,10 @@ struct Args {
     /// 只量几段文字的宽度（点），不出图；与 AppKit 的 NSAttributedString.size() 对数。
     #[arg(long)]
     measure: bool,
+
+    /// 皮肤文件（TOML）；给了就用它的浅 / 深分节出图，缺的分节回退内置主题。
+    #[arg(long)]
+    skin: Option<PathBuf>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -77,6 +81,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
     let shadow = (!args.no_shadow).then_some(Shadow::mac_panel());
+    let themes: [(&str, Theme); 2] = match &args.skin {
+        Some(path) => {
+            let text = std::fs::read_to_string(path)?;
+            let skin = ThemeFile::from_toml(&text)
+                .map_err(|error| format!("皮肤文件 {}：{error}", path.display()))?;
+            [("light", skin.resolve(false)), ("dark", skin.resolve(true))]
+        }
+        None => [("light", Theme::light()), ("dark", Theme::dark())],
+    };
 
     let scenes: [(&str, Frame, Layout); 7] = [
         ("matrix-horizontal", matrix(), Layout::Horizontal),
@@ -95,10 +108,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ),
         ("probe", probe(), Layout::Vertical),
     ];
-    for (theme_name, theme) in [("light", Theme::light()), ("dark", Theme::dark())] {
+    for (theme_name, theme) in &themes {
         for (scene, frame, layout) in &scenes {
             let started = Instant::now();
-            let rendered = renderer.render(frame, *layout, &theme, args.scale, shadow.as_ref())?;
+            let rendered = renderer.render(frame, *layout, theme, args.scale, shadow.as_ref())?;
             let elapsed = started.elapsed();
             let path = args.out.join(format!("{scene}-{theme_name}.png"));
             rendered.pixmap.save_png(&path)?;
@@ -120,8 +133,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         StatusCell::text("，。", true),
         StatusCell::Gear,
     ];
-    for (theme_name, theme) in [("light", Theme::light()), ("dark", Theme::dark())] {
-        let status = renderer.render_status(&cells, &theme, args.scale, shadow.as_ref())?;
+    for (theme_name, theme) in &themes {
+        let status = renderer.render_status(&cells, theme, args.scale, shadow.as_ref())?;
         let path = args.out.join(format!("status-{theme_name}.png"));
         status.rendered.pixmap.save_png(&path)?;
         let (w, h) = status.rendered.content_size_points();
@@ -142,7 +155,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ] {
         println!(
             "「{probe}」各字形字体：{}",
-            renderer.trace_families(probe, &Theme::light()).join(" → ")
+            renderer.trace_families(probe, &themes[0].1).join(" → ")
         );
     }
     Ok(())

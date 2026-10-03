@@ -1,12 +1,16 @@
-//! 主题：字体、颜色、间距。所有可视参数都在这里，单位是点；将来从 TOML 读。
+//! 主题：字体、颜色、间距。所有可视参数都在这里，单位是点；深浅两套硬编码，皮肤文件（[`ThemeFile`]）可覆盖。
 //!
 //! 视觉层级（产品决定）：候选词最深，译文稍浅，词性最浅，序号弱化。数值对齐 macOS 壳的 AppKit 实现。
 
+mod file;
 mod font_spec;
 mod palette;
+mod patch;
 
+pub use file::ThemeFile;
 pub use font_spec::FontSpec;
 pub use palette::Palette;
+pub use patch::ThemePatch;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Theme {

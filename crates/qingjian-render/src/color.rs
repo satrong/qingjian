@@ -1,5 +1,7 @@
 //! 颜色：sRGB 8 位 + alpha，与平台无关；到 tiny-skia / cosmic-text 的换算集中在这里。
 
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Color {
     pub r: u8,
@@ -31,6 +33,27 @@ impl Color {
         }
     }
 
+    /// 解析 `#RRGGBB` / `#RRGGBBAA`（大小写都认）；`#RGB` 短写不认，写法不对返回 `None`。
+    pub fn from_hex(text: &str) -> Option<Self> {
+        let hex = text.strip_prefix('#')?;
+        let bytes = hex.as_bytes();
+        if !matches!(bytes.len(), 6 | 8) || !bytes.iter().all(u8::is_ascii_hexdigit) {
+            return None;
+        }
+        let byte = |at: usize| u8::from_str_radix(&hex[at..at + 2], 16).ok();
+        let a = if bytes.len() == 8 { byte(6)? } else { 255 };
+        Some(Self::rgba(byte(0)?, byte(2)?, byte(4)?, a))
+    }
+
+    /// `#RRGGBB` / `#RRGGBBAA`；给皮肤文件与设置页显示用，与 [`Color::from_hex`] 互逆。
+    pub fn to_hex(self) -> String {
+        if self.a == 255 {
+            format!("#{:02X}{:02X}{:02X}", self.r, self.g, self.b)
+        } else {
+            format!("#{:02X}{:02X}{:02X}{:02X}", self.r, self.g, self.b, self.a)
+        }
+    }
+
     pub(crate) fn to_skia(self) -> tiny_skia::Color {
         tiny_skia::Color::from_rgba8(self.r, self.g, self.b, self.a)
     }
@@ -57,6 +80,20 @@ pub(crate) fn premultiply(r: u8, g: u8, b: u8, a: u8) -> tiny_skia::Premultiplie
         .unwrap_or(tiny_skia::PremultipliedColorU8::TRANSPARENT)
 }
 
+impl Serialize for Color {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.to_hex())
+    }
+}
+
+impl<'de> Deserialize<'de> for Color {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let text = String::deserialize(deserializer)?;
+        Self::from_hex(&text)
+            .ok_or_else(|| D::Error::custom(format_args!("颜色不是 #RRGGBB 或 #RRGGBBAA：{text}")))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -69,5 +106,54 @@ mod tests {
         assert_eq!((half.red(), half.alpha()), (0, 128));
         assert_eq!(mul_u8(255, 255), 255);
         assert_eq!(mul_u8(0, 255), 0);
+    }
+
+    #[test]
+    fn parses_hex_colors() {
+        assert_eq!(Color::from_hex("#FFFFFF"), Some(Color::rgb(255, 255, 255)));
+        assert_eq!(Color::from_hex("#ffffff"), Some(Color::rgb(255, 255, 255)));
+        assert_eq!(
+            Color::from_hex("#1E1E1EFF"),
+            Some(Color::rgba(30, 30, 30, 255))
+        );
+        assert_eq!(
+            Color::from_hex("#FF00807F"),
+            Some(Color::rgba(255, 0, 128, 127))
+        );
+        // #RGB 短写、缺 #、位数不对、非十六进制都拒绝
+        assert_eq!(Color::from_hex("#FFF"), None);
+        assert_eq!(Color::from_hex("FFFFFF"), None);
+        assert_eq!(Color::from_hex("#FFFFF"), None);
+        assert_eq!(Color::from_hex("#FFFFFG"), None);
+        assert_eq!(Color::from_hex(""), None);
+        assert_eq!(Color::from_hex("#1234567890"), None);
+    }
+
+    #[test]
+    fn hex_round_trips() {
+        for color in [
+            Color::rgb(255, 255, 255),
+            Color::rgba(30, 30, 30, 255),
+            Color::rgba(255, 0, 128, 127),
+        ] {
+            assert_eq!(Color::from_hex(&color.to_hex()), Some(color));
+        }
+        assert_eq!(Color::rgb(30, 30, 30).to_hex(), "#1E1E1E");
+        assert_eq!(Color::rgba(30, 30, 30, 128).to_hex(), "#1E1E1E80");
+    }
+
+    #[test]
+    fn serde_uses_hex_string() {
+        #[derive(Deserialize, Serialize, PartialEq, Debug)]
+        struct Wrapper {
+            color: Color,
+        }
+
+        let text = "color = \"#FF00807F\"\n";
+        let wrapper: Wrapper = toml::from_str(text).unwrap();
+        assert_eq!(wrapper.color, Color::rgba(255, 0, 128, 127));
+        assert_eq!(toml::to_string(&wrapper).unwrap(), text);
+
+        assert!(toml::from_str::<Wrapper>("color = \"#FFF\"\n").is_err());
     }
 }

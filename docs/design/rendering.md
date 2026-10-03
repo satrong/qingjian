@@ -109,6 +109,7 @@
 字体可选：`[general] font` 指定字族名，mac 壳用 CoreText 按字族名查出文件（`CTFontDescriptorCreateMatchingFontDescriptors` → `kCTFontURLAttribute`）交给渲染器只加载那几个文件，系统字体仍在后面当回退；没装就退回系统字体并记日志。真机验过 Kaiti SC 与不存在的字体名。
 
 **结论**：四条都过，mac 上位图渲染器可以替换 AppKit 绘制；Windows 半边见下节。下一步做主题 TOML，稳定一版后删 AppKit / GDI 旧路径。
+主题 TOML 的格式与落地方案见 [skin.md](skin.md)。
 主题以后要放图片 / 动图 / 花边：渲染器输出就是一张位图，装饰只是多叠几层，不用换底子。
 
 ## Windows 半边（2026-09-15，真机已验）

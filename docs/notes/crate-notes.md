@@ -198,9 +198,13 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 
 自绘渲染器：候选窗一帧 + 主题 → 预乘 RGBA 位图，tiny-skia 栅格 + cosmic-text 文字（fontdb 按平台清单只加载几个字体文件、不扫系统），
 自己解析 `trak` 字距表、按主题 gamma 加深笔画；cosmic-text 打了 `opsz` 光学字号补丁（qingjian-team/cosmic-text 分支 `qingjian-opsz`，workspace `[patch.crates-io]` 钉 rev）。
-`examples/preview.rs` 出 PNG 与真机截图并排比、`--measure` 与 AppKit 对宽度。mac 壳 `candidates/bitmap/` 贴位图，`[general] renderer = "system"` 切回 AppKit 绘制
+`examples/preview.rs` 出 PNG 与真机截图并排比、`--measure` 与 AppKit 对宽度、`--skin <path>` 按皮肤文件出图。mac 壳 `candidates/bitmap/` 贴位图，`[general] renderer = "system"` 切回 AppKit 绘制
 （过渡期退路，偏好设置「候选窗口」页可选）；`[general] font` 是候选窗字族名（空为系统字体，`bitmap/font_files.rs` 用 CoreText 按字族名找文件只加载那几个，没装就回系统字体；
 设置页 `preferences/font_picker/` 是搜索框 + 列表）。设计与验收见 `docs/design/rendering.md`。
+
+皮肤文件（`docs/design/skin.md`）：`ThemeFile::from_toml` 读 `[skin]` 表（元数据 + 可选的 `light` / `dark` 分节），`resolve(dark)` 以内置
+`Theme::light()` / `Theme::dark()` 为底逐字段覆盖；分节是 `theme/patch.rs` 的 `ThemePatch`（全字段 `Option` 的部分覆盖），颜色写 `#RRGGBB(AA)`，
+色值格式非法只回退那一个字段并 warn，结构错误（缺 `[skin]`、键名拼错、类型不对）则整份失败、调用方回退内置主题。
 
 ## crates/qingjian-update
 

@@ -9,6 +9,9 @@ repository.workspace = true
 [dependencies]
 tiny-skia.workspace = true
 cosmic-text.workspace = true
+# 皮肤文件（[skin] TOML）的类型与解析
+serde.workspace = true
+toml.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 

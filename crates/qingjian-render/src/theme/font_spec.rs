@@ -1,6 +1,9 @@
 //! 一种字体用法：字号与行高（点）。字族不在这里定，由字体库按平台给界面字体。
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+use serde::Deserialize;
+
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct FontSpec {
     /// 字号。
     pub size: f32,

@@ -18,6 +18,7 @@ README.md 只介绍项目，所有技术内容放在这里，分四类：前三�
 | [design/rendering.md](design/rendering.md) | 跨平台 UI 与自绘渲染器（2026-09-13）：显示面与控件面的区分、Flutter / Avalonia / WebView 的调研结论、主题的两条路、tiny-skia + cosmic-text 的 spike 结果与两平台接入 |
 | [design/aux-code.md](design/aux-code.md) | 辅码（2026-09-14）：触发键与过滤语义、Rime 码表导入、笔画原生表与大陆序覆盖、候选注记与设置界面 |
 | [design/extra-body.md](design/extra-body.md) | 云联想额外参数（2026-10-01）：云服务页的 JSON 口子，原样合并进请求体、同名键覆盖内置值、解析与校验时机 |
+| [design/skin.md](design/skin.md) | 自定义皮肤（2026-10-03）：皮肤文件 TOML 的格式与逐层回退、`[general] skin` 与三档外观的关系、各平台落点与热加载、分期 |
 | [plan/roadmap.md](plan/roadmap.md) | 分阶段路线图、各阶段的依赖关系与已完成项 |
 | [plan/zh_tw_support_plan.md](plan/zh_tw_support_plan.md) | 繁体输出与台湾注音支持的分析与方案（贡献者 pinchiu，#22）：读音标准差异、台湾用语、简转繁一对多；两条路线 |
 | [plan/todo.md](plan/todo.md) | 待办清单，按「从自用到能给别人用」排 |
