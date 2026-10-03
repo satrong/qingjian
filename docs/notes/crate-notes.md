@@ -186,6 +186,7 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 `extra_dictionaries` 列出 / 加载随包领域词库与用户 `dicts/`
 （mac 壳与 Windows Server 共用，同名 `.qj` 优先于 `.tsv`）；`code_tables` 同构地列出 / 加载随包根 `codes/` 与用户 `codes/` 的码表
 （`[aux_code] disabled` 是黑名单，`[general] aux_code_key` 缺省 `;` 且校验后退回缺省、`aux_code_show` 是显示码开关）；
+`GeneralConfig.skin` 是皮肤名（空 = 不用皮肤，模板带说明；平台层只存字符串，读文件与解析在渲染器和各平台壳里，见 `docs/design/skin.md`）；
 `protocol` 模块是 Windows Server ↔ TSF DLL 的 IPC 协议类型
 （`ClientMessage` / `ServerMessage` / `Frame` / `PreeditSegment`，全 serde，两端共用，见 `docs/design/architecture.md`「Windows：TSF」；
 `PROTOCOL_VERSION` = 7（v7 加任务栏图标右键菜单的 `Indicator`），`PreeditKind::AuxCode` 对应 Core 的 `MarkedKind::AuxCode`，`Frame.aux_code_show` 随帧下发显示码开关）。
@@ -197,7 +198,9 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 预览示例里有 `matrix-horizontal` 场景。mac 壳里这套按键由 `[general] horizontal_grid`（缺省关）加横排两个条件一起开（`Host::grid_keys`）。
 
 自绘渲染器：候选窗一帧 + 主题 → 预乘 RGBA 位图，tiny-skia 栅格 + cosmic-text 文字（fontdb 按平台清单只加载几个字体文件、不扫系统），
-自己解析 `trak` 字距表、按主题 gamma 加深笔画；cosmic-text 打了 `opsz` 光学字号补丁（qingjian-team/cosmic-text 分支 `qingjian-opsz`，workspace `[patch.crates-io]` 钉 rev）。
+自己解析 `trak` 字距表、按主题 gamma 加深笔画；cosmic-text 打了 `opsz` 光学字号补丁（qingjian-team/cosmic-text 分支 `qingjian-opsz`，
+workspace `[patch.crates-io]` 钉 rev；2026-10-03 起字体实例按（字重，光学字号）分键、渲染器按每段文字的字号设值——
+`<20 pt` 用 17、`≥20 pt` 用字号本身，倍数变化时清字形栅格缓存；fork 上的分键提交尚未推送，当前钉的 rev 是旧补丁）。
 `examples/preview.rs` 出 PNG 与真机截图并排比、`--measure` 与 AppKit 对宽度、`--skin <path>` 按皮肤文件出图。mac 壳 `candidates/bitmap/` 贴位图，`[general] renderer = "system"` 切回 AppKit 绘制
 （过渡期退路，偏好设置「候选窗口」页可选）；`[general] font` 是候选窗字族名（空为系统字体，`bitmap/font_files.rs` 用 CoreText 按字族名找文件只加载那几个，没装就回系统字体；
 设置页 `preferences/font_picker/` 是搜索框 + 列表）。设计与验收见 `docs/design/rendering.md`。
@@ -205,6 +208,7 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 皮肤文件（`docs/design/skin.md`）：`ThemeFile::from_toml` 读 `[skin]` 表（元数据 + 可选的 `light` / `dark` 分节），`resolve(dark)` 以内置
 `Theme::light()` / `Theme::dark()` 为底逐字段覆盖；分节是 `theme/patch.rs` 的 `ThemePatch`（全字段 `Option` 的部分覆盖），颜色写 `#RRGGBB(AA)`，
 色值格式非法只回退那一个字段并 warn，结构错误（缺 `[skin]`、键名拼错、类型不对）则整份失败、调用方回退内置主题。
+消费方是 mac 壳的 `candidates/skin.rs`（按名字定位 `themes/*.toml`、解析并经 `window.set_skin` 下发，见 `apps/macos` 一节）。
 
 ## crates/qingjian-update
 
@@ -240,7 +244,9 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 
 IMK 输入法，源码按 `app / host / imk / candidates / menubar / preferences` 分目录。
 
-- 输入法菜单（状态项 + 系统输入源菜单）与偏好设置窗口都是配置文件的前端：只写 `config.toml`，`Host::apply_config` 一条通路热加载，激活期间每秒看一次文件 mtime。
+- 输入法菜单（状态项 + 系统输入源菜单）与偏好设置窗口都是配置文件的前端：只写 `config.toml`，`Host::apply_config` 一条通路热加载，激活期间每秒看一次文件 mtime；
+  皮肤另有热加载（`Host::apply_skin`）：每秒 stat 皮肤文件与 `themes/` 目录的 mtime 签名，变了才重读解析，只改皮肤不碰 `config.toml` 也生效；
+  解析在 `candidates/skin.rs`（用户 `themes/` 优先、随包 `Resources/themes/` 兜底），经 `window.set_skin` 下发给位图渲染器，系统绘制路径不接（皮肤只在青简渲染器下生效）。
   输入方案（`[general] scheme`）也在这里装配：双拼 / 注音设给引擎，形码额外按 `paths::code_table_path()` 挂码表
   （用户目录 `wubi/wubi86.tsv` 优先，包里 `Resources/wubi/` 兜底；找不到只警告并按拼音跑）。
 - `apps/macos/scripts/bundle.sh --install` 打包安装到 `~/Library/Input Methods/`（开发用），`--pkg` 做分发用的 pkg（装 `/Library/Input Methods/`，postinstall 跑 `qingjian-macos --register`
@@ -250,7 +256,7 @@ IMK 输入法，源码按 `app / host / imk / candidates / menubar / preferences
 - 配置项：云联想 `[predict]`（偏好设置「云服务」页有「测试连接」按钮：`qingjian_predict::ConnectionTest` 起线程发一条最小请求，`Host` 用独立定时器 `CloudTestMonitor` 轮询结果显示到窗口底部；
   「联想提示词」是页里唯一的多行框：`NSTextView` 不是 `NSControl`、`NSView.tag` 只读，控件与设置项的对应记在 `preferences/target.rs` 的登记表里，
   失焦经 `textDidEndEditing:` 整段写回 `system_prompt`，关窗（`preferences/panel.rs`）先 `makeFirstResponder(None)` 收尾，否则没点别处就白改；
-  `reasoning_effort` 缺省 `none`，DeepSeek V4 默认思考，不关正文为空）；模糊音 `[fuzzy]` 默认都关；`[general]` 学习语言（`off` 不显示译文）/ 每页候选数 / 翻页键 / 外观 / 竖排横排 / 拼音显示位置 /
+  `reasoning_effort` 缺省 `none`，DeepSeek V4 默认思考，不关正文为空）；模糊音 `[fuzzy]` 默认都关；  `[general]` 学习语言（`off` 不显示译文）/ 每页候选数 / 翻页键 / 外观 / 皮肤 `skin`（`themes/*.toml`，见上面的皮肤热加载）/ 竖排横排 / 拼音显示位置 /
   英文模式候选开关 / 中英混输英文词开关 `chinese_english_candidates` / 表情候选开关 `emoji_candidates` / 中文优先 `chinese_first` / 双拼方案 `shuangpin`（小鹤 / 自然码 / 微软 / 搜狗 / 智能ABC / 小浪 / 首道，空为全拼）/ 日志级别 `log_level`（缺省 info 不含敲的内容，debug 逐键记，热切换）/ 输入日志 `input_log`；
   `[shortcut]` 模式键 v / u、`question_mark`（缺省关，开了空缓冲区敲 `?` 进问字）、上屏第一 / 第二个译词的修饰键 `translation` / `translation_second`、删候选 `delete_candidate`（缺省 shift，用户词整删、词库词清学习）、翻译选中文字 `translate_selection`；
   `[apps] english_candidates_off` 按 bundle identifier 列出英文模式不给候选的应用（缺省终端 / 编辑器 / IDE，`*` 前缀匹配）；

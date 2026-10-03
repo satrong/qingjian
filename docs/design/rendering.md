@@ -89,8 +89,12 @@
 **对齐原生要补的三样**（都是 CoreText 对系统字体默默做的事）：
 
 1. **光学字号 `opsz`**：SF 是变量字体，CoreText 在 20 pt 以下用 opsz = 17（Text 视觉尺寸），cosmic-text 只设 `wght`，落在缺省的 28（Display），
-   小字号英文窄 16–24%。补法：给 cosmic-text 打补丁 `FontSystem::set_optical_size`（shaper 位置与 swash 栅格都带 opsz），放在 [qingjian-team/cosmic-text](https://github.com/qingjian-team/cosmic-text) 的 `qingjian-opsz` 分支（基于 0.19.0，一个提交），workspace `[patch.crates-io]` 钉 rev；上游收了就回 crates.io。
-   补丁是全局一个值，字体实例缓存没按它分键；候选窗几种字号都在 20 pt 以下落同一档，够用，做主题字号可调时要改成按字号分键。
+   小字号英文窄 16–24%。补法：给 cosmic-text 打补丁 `FontSystem::set_optical_size`（shaper 位置与 swash 栅格都带 opsz），放在 [qingjian-team/cosmic-text](https://github.com/qingjian-team/cosmic-text) 的 `qingjian-opsz` 分支（基于 0.19.0），workspace `[patch.crates-io]` 钉 rev；上游收了就回 crates.io。
+   2026-10-03 起按字号分键：fork 的 `font_cache` 改按（字重，光学字号）分键、`set_optical_size` 只赋值不再整表清缓存（皮肤开放字号可调的前置，
+   **该 fork 提交尚未推送，钉的 rev 还是旧补丁——旧补丁换值整表清缓存，结果正确、只是大字号皮肤来回切会重载字体**）；
+   渲染器 `shape` 前按每段文字的字号设值（`points < 20` → 17，`≥ 20` → 字号本身，超轴范围由 cosmic-text clamp 回轴上；
+   `≥ 20` 那半边的取值待与 CoreText 对照后定案）。栅格图的 `CacheKey` 仍不含 opsz——同像素字号在不同倍数下可能对应不同光学字号，
+   所以倍数变化时清 `SwashCache`（`TextPainter::reset_glyph_cache`）。
 2. **`trak` 字距表**：SF 按字号给每个字形加减间距（11 pt +12、12 pt 0、16 pt −40 个字体单位，值 / upem × 字号 = 点），PingFang 没有正常轨。
    渲染器自己解析 `trak`（`fonts/trak.rs`），按字形所用字体各查各的。补完后「hello」「ni'hao」「1/6」「phr. you change」三个字号的宽度与 `NSAttributedString.size()` 到小数点后两位相等。
 3. **笔画加深**：CoreText 对文字抗锯齿有一层 gamma，线性混合出来的字偏细，深色背景尤其明显。主题里加 `text_gamma`（浅色 0.85、深色 0.75），放大并排看笔画粗细一致。

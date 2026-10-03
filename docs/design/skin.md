@@ -116,14 +116,18 @@ Windows 的 GDI 路径（`ui/candidates/theme/`，`HFONT`/`COLORREF`）是两套
 
 ## 前置项
 
-**opsz 补丁要先改成按字号分键**（`rendering.md:93`）：现在补丁是全局一个值、字体实例缓存没按它分键，
-候选窗几种字号都落在 20 pt 以下同一档所以够用；皮肤一开放字号可调就会串实例。这是做字号可调的硬前置。
+**opsz 补丁按字号分键（2026-10-03 完成，fork 提交待推送钉 rev）**（`rendering.md:93`）：
+fork 的 `font_cache` 改按（字重，光学字号）分键、`set_optical_size` 不再整表清缓存；
+渲染器 `shape` 前按 `style.points` 设 opsz（<20 pt → 17，≥20 pt → 字号本身），倍数变化时清字形栅格缓存。
+详见 `rendering.md` 光学字号一节。
 
 ## 分期
 
 1. **数据模型 + 文件解析（2026-10-03 完成）**：`Color` 十六进制与 serde、`ThemePatch` / `ThemeFile` 解析合并、
    `examples/preview.rs --skin <path>` 离线出 PNG 迭代皮肤、上面那几条单测。
-2. **macOS 打通**：配置字段 → 热加载 → 候选窗 / 状态条换 `Theme`，`bundle.sh --install` 真机验。
+2. **macOS 打通（2026-10-03 完成）**：`[general] skin` 配置字段与模板、`candidates/skin.rs` 解析下发
+   （`Host::apply_config` → `window.set_skin` → `BitmapPainter`，相同皮肤不重画）、tick 里 stat 皮肤文件与
+   `themes/` 目录 mtime 热加载、分页 `max_rows` 跟皮肤走（仅青简渲染器）；`bundle.sh --install` 真机验待跑。
 3. **Windows 打通**：`RenderSettings` 下发、`sync_theme` 失效条件，真机验（本机只 `cargo check --target x86_64-pc-windows-gnu`）。
 4. **设置页 + 内置皮肤**：两平台选择器；内置 2–3 个皮肤进 `bundle.sh` 白名单与 `qingjian.iss`；首次运行建 `themes/` 目录并放 README 说明格式。
 5. **文档**：`crate-notes.md` render 与 platform 两节、`docs/user/` 偏好设置页、`rendering.md` 指过来。
