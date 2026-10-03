@@ -39,6 +39,8 @@ pub(crate) enum Message {
     FontQuery(String),
     /// 从提示里选了一个字族。
     Font(String),
+    /// 皮肤下拉选了一项（0 = 默认，即不用皮肤）。
+    Skin(Option<usize>),
     StatusBar(bool),
 
     // 云服务页

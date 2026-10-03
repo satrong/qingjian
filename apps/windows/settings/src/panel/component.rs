@@ -9,7 +9,7 @@ use windows_reactor::*;
 use super::cloud_status::CloudStatus;
 use super::controls::{export_logs, log_dir, open_in_editor, open_with_explorer};
 use super::notice::Notice;
-use super::pages::{about, aux_code, cloud, dictionaries, general, shortcut};
+use super::pages::{about, aux_code, candidates, cloud, dictionaries, general, shortcut};
 use super::recorder::Recorder;
 use super::{Message, Settings};
 
@@ -36,6 +36,7 @@ impl Component for Settings {
             update_error: None,
             dictionary_status: String::new(),
             families: qingjian_render::system_fonts::families(),
+            skins: candidates::list_skins(),
             font_query: None,
             prompt_box_mounted: false,
         }
@@ -136,6 +137,15 @@ impl Component for Settings {
             Message::Font(family) => {
                 self.font_query = None;
                 self.save("general", "font", family);
+            }
+            // 下标 0 是「默认」（不用皮肤），其余对齐 create 时收好的列表
+            Message::Skin(Some(i)) if i <= self.skins.len() => {
+                let id = if i == 0 {
+                    String::new()
+                } else {
+                    self.skins[i - 1].id.clone()
+                };
+                self.save("general", "skin", id);
             }
             Message::StatusBar(on) => self.save("status_bar", "enabled", on),
 

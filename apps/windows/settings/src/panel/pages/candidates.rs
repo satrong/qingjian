@@ -1,6 +1,9 @@
-//! 「候选窗口」页：外观、排布、渲染引擎、字体、拼音显示位置、悬浮状态条。
+//! 「候选窗口」页：外观、排布、渲染引擎、皮肤、字体、拼音显示位置、悬浮状态条。
+
+use std::collections::BTreeMap;
 
 use qingjian_platform::{CandidateRenderer, LayoutMode, PreeditMode, ThemeMode};
+use qingjian_render::{SkinEntry, ThemeFile};
 use windows_reactor::*;
 
 use crate::panel::controls::{field, page};
@@ -19,6 +22,21 @@ fn mode_combo<T: PartialEq + Copy>(
         .on_selection_changed(callback)
 }
 
+/// 随包 + 用户 `themes/` 里可解析的皮肤，按显示名排序；同 id 用户覆盖随包。
+pub(crate) fn list_skins() -> Vec<SkinEntry> {
+    let mut entries = BTreeMap::new();
+    let bundled = qingjian_platform::resources::bundled_root().map(|root| root.join("themes"));
+    let user = qingjian_platform::dirs::themes_dir();
+    for dir in [bundled, user].into_iter().flatten() {
+        for (path, why) in ThemeFile::collect_themes(&dir, &mut entries) {
+            crate::log::warn(format!("皮肤文件 {} {why}，不进列表", path.display()));
+        }
+    }
+    let mut entries: Vec<SkinEntry> = entries.into_values().collect();
+    entries.sort_by(|a, b| a.label.cmp(&b.label));
+    entries
+}
+
 pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> View {
     let g = &settings.config.general;
     let font_text = settings
@@ -32,6 +50,15 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
         .filter(|family| family.to_lowercase().contains(&query))
         .cloned()
         .collect();
+    // 第 0 项「默认」= 不用皮肤，其余按 skins 顺序对齐 Message::Skin 的下标
+    let skins = std::iter::once(String::from("默认"))
+        .chain(settings.skins.iter().map(|skin| skin.label.clone()))
+        .collect::<Vec<_>>();
+    let skin_index = settings
+        .skins
+        .iter()
+        .position(|skin| skin.id == g.skin)
+        .map_or(0, |index| index + 1);
     let rows = [
         field(
             "外观",
@@ -62,6 +89,14 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 CandidateRenderer::label,
                 context.callback(Message::Renderer),
             ),
+        ),
+        field(
+            "皮肤",
+            "只对青简渲染器生效；文件放配置目录 themes（里面有格式说明），存盘约 1 秒生效。",
+            ComboBox::new()
+                .items_source(skins)
+                .selected_index(skin_index)
+                .on_selection_changed(context.callback(Message::Skin)),
         ),
         field(
             "字体",

@@ -63,6 +63,9 @@ pub(crate) struct Settings {
     /// 系统里的字族名（DirectWrite），「字体」框的提示用。
     families: Vec<String>,
 
+    /// 随包与用户目录里可解析的皮肤，「皮肤」下拉用（第 0 项「默认」不在这里）。
+    pub(super) skins: Vec<qingjian_render::SkinEntry>,
+
     /// 「字体」框里正在敲的文字；`None` 显示配置里的值。
     font_query: Option<String>,
 
