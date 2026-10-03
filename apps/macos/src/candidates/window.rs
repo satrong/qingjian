@@ -11,6 +11,7 @@ use objc2_foundation::{NSPoint, NSRect, NSSize};
 use qingjian_platform::{CandidateRenderer, LayoutMode, ThemeMode};
 
 use super::frame::Frame;
+use super::skin::SkinThemes;
 use super::theme::Theme;
 use super::view::CandidateView;
 
@@ -129,8 +130,13 @@ impl CandidateWindow {
         self.view.set_font(font);
     }
 
+    /// 皮肤的深浅两套渲染主题，只对青简渲染器生效。
+    pub fn set_skin(&self, skin: SkinThemes) {
+        self.view.set_skin(skin);
+    }
+
     pub fn max_rows(&self) -> usize {
-        self.view.theme().max_rows
+        self.view.max_rows()
     }
 
     /// 窗口左下角坐标：贴在光标行下方；下方放不下放上方；不出光标所在的那块屏幕。

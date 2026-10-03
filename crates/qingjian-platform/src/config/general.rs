@@ -34,6 +34,10 @@ pub struct GeneralConfig {
     /// 候选窗口外观。
     pub theme: ThemeMode,
 
+    /// 皮肤名：`themes/` 下的文件名（不含 `.toml`；空 = 不用皮肤）。叠加在 [`Self::theme`] 选出的配色之上，
+    /// 只对青简渲染器生效，格式见 `docs/design/skin.md`。
+    pub skin: String,
+
     /// 候选窗口竖排 / 横排。
     pub layout: LayoutMode,
 
@@ -130,6 +134,7 @@ impl Default for GeneralConfig {
             page_size: MAX_PAGE_SIZE,
             page_keys: PAGE_KEY_OPTIONS[0].to_owned(),
             theme: ThemeMode::default(),
+            skin: String::new(),
             layout: LayoutMode::default(),
             horizontal_grid: false,
             renderer: CandidateRenderer::default(),

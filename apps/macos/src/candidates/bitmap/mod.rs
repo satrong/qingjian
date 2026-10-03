@@ -13,9 +13,10 @@ use objc2::rc::Retained;
 use objc2_app_kit::{NSBitmapImageRep, NSCalibratedRGBColorSpace, NSCompositingOperation, NSImage};
 use objc2_foundation::{NSPoint, NSRect, NSSize};
 use qingjian_platform::LayoutMode;
-use qingjian_render::{FontLibrary, Layout, Renderer, Theme, UiFont};
+use qingjian_render::{FontLibrary, Layout, Renderer, UiFont};
 
 use super::frame::Frame;
+use super::skin::SkinThemes;
 
 pub struct BitmapPainter {
     /// 渲染器（字体库随它）。
@@ -38,11 +39,14 @@ pub struct BitmapPainter {
 
     /// 最近一帧的尺寸（点）。
     size: NSSize,
+
+    /// 当前皮肤的深浅两套主题，`repaint` 按 `dark` 挑。
+    skin: SkinThemes,
 }
 
 impl BitmapPainter {
     /// `font` 是用户选的字族名，空为系统字体；没装就回到系统字体。字体库加载失败返回 `None`，调用方退回旧路径。
-    pub fn new(font: &str) -> Option<Self> {
+    pub fn new(font: &str, skin: SkinThemes) -> Option<Self> {
         let started = std::time::Instant::now();
         let font = font.trim();
         let library = if font.is_empty() {
@@ -74,7 +78,14 @@ impl BitmapPainter {
             dark: false,
             scale: 2.0,
             size: NSSize::ZERO,
+            skin,
         })
+    }
+
+    /// 换皮肤并按当前帧重画。
+    pub fn set_skin(&mut self, skin: SkinThemes) {
+        self.skin = skin;
+        self.repaint();
     }
 
     /// 记下新一帧并画好，返回窗口该有的尺寸（点）。
@@ -121,24 +132,19 @@ impl BitmapPainter {
     }
 
     fn repaint(&mut self) {
-        let theme = if self.dark {
-            Theme::dark()
-        } else {
-            Theme::light()
-        };
+        let theme = self.skin.get(self.dark);
         let started = std::time::Instant::now();
-        let rendered =
-            match self
-                .renderer
-                .render(&self.frame, self.layout, &theme, self.scale, None)
-            {
-                Ok(rendered) => rendered,
-                Err(error) => {
-                    tracing::warn!(%error, "候选窗渲染失败");
-                    self.image = None;
-                    return;
-                }
-            };
+        let rendered = match self
+            .renderer
+            .render(&self.frame, self.layout, theme, self.scale, None)
+        {
+            Ok(rendered) => rendered,
+            Err(error) => {
+                tracing::warn!(%error, "候选窗渲染失败");
+                self.image = None;
+                return;
+            }
+        };
         let (width, height) = rendered.content_size_points();
         self.size = NSSize::new(f64::from(width), f64::from(height));
         self.image = to_image(&rendered.pixmap, self.size);

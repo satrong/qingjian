@@ -26,6 +26,7 @@ use super::frame::Frame;
 use super::preedit::Preedit;
 use super::preedit::PreeditStyle;
 use super::row::{Row, Tone};
+use super::skin::SkinThemes;
 use super::theme::Theme;
 
 /// 视图状态。
@@ -47,6 +48,9 @@ pub struct Ivars {
 
     /// 用户选的字族名（空为系统字体），换了要重建渲染器。
     font: RefCell<String>,
+
+    /// 当前皮肤的深浅两套主题（没皮肤就是内置默认）；皮肤只给位图渲染器用。
+    skin: RefCell<SkinThemes>,
 }
 
 /// preedit 光标的宽度。
@@ -122,6 +126,7 @@ impl CandidateView {
             theme,
             bitmap: RefCell::new(None),
             font: RefCell::new(String::new()),
+            skin: RefCell::new(SkinThemes::builtin()),
         });
         unsafe { msg_send![super(this), initWithFrame: NSRect::ZERO] }
     }
@@ -134,7 +139,21 @@ impl CandidateView {
         *self.ivars().font.borrow_mut() = font.to_owned();
         let mut bitmap = self.ivars().bitmap.borrow_mut();
         if bitmap.is_some() {
-            *bitmap = BitmapPainter::new(font);
+            *bitmap = BitmapPainter::new(font, self.ivars().skin.borrow().clone());
+            drop(bitmap);
+            self.setNeedsDisplay(true);
+        }
+    }
+
+    /// 皮肤的深浅两套渲染主题。渲染器在用就当场重画；同一份皮肤不动（热加载每秒都会来问一次）。
+    pub fn set_skin(&self, skin: SkinThemes) {
+        if *self.ivars().skin.borrow() == skin {
+            return;
+        }
+        *self.ivars().skin.borrow_mut() = skin.clone();
+        let mut bitmap = self.ivars().bitmap.borrow_mut();
+        if let Some(painter) = bitmap.as_mut() {
+            painter.set_skin(skin);
             drop(bitmap);
             self.setNeedsDisplay(true);
         }
@@ -145,7 +164,10 @@ impl CandidateView {
         let mut bitmap = self.ivars().bitmap.borrow_mut();
         match renderer {
             CandidateRenderer::Qingjian if bitmap.is_none() => {
-                *bitmap = BitmapPainter::new(&self.ivars().font.borrow());
+                *bitmap = BitmapPainter::new(
+                    &self.ivars().font.borrow(),
+                    self.ivars().skin.borrow().clone(),
+                );
             }
             CandidateRenderer::System if bitmap.is_some() => {
                 tracing::info!("候选窗切回 AppKit 绘制");
@@ -177,6 +199,17 @@ impl CandidateView {
 
     pub fn theme(&self) -> &Theme {
         &self.ivars().theme
+    }
+
+    /// 每页最多几行：青简渲染器在用时按渲染主题（皮肤能改它，深浅各随当前外观），
+    /// 系统绘制时皮肤不生效，按 AppKit 主题。
+    pub fn max_rows(&self) -> usize {
+        let bitmap_active = self.ivars().bitmap.borrow().is_some();
+        if bitmap_active {
+            self.ivars().skin.borrow().get(self.is_dark()).max_rows
+        } else {
+            self.theme().max_rows
+        }
     }
 
     pub fn set_layout(&self, layout: LayoutMode) {

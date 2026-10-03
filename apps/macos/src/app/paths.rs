@@ -60,6 +60,13 @@ pub fn dicts_dir() -> Option<PathBuf> {
     Some(dir)
 }
 
+/// 皮肤目录：`~/Library/Application Support/Qingjian/themes/`，不存在则创建。
+pub fn themes_dir() -> Option<PathBuf> {
+    let dir = user_data_dir()?.join("themes");
+    std::fs::create_dir_all(&dir).ok()?;
+    Some(dir)
+}
+
 /// 含章·知微（`.qjm` 单文件，或开发时的三件套目录）：
 /// 用户目录 `models/hanzhang-zhiwei/` 优先，兼容旧 `model/`；否则用包里的同名目录。
 pub fn model_path() -> Option<PathBuf> {

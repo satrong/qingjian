@@ -213,6 +213,9 @@ horizontal_grid = false
 renderer = "qingjian"
 # 候选窗口字体（字族名，如 "LXGW WenKai"）；空为系统字体。只对青简渲染器生效，没装这个字体时自动回到系统字体
 font = ""
+# 候选窗口皮肤（配置目录 themes/ 下的文件名，不含 .toml；空 = 不用皮肤）：叠在 theme 选出的配色之上。
+# 只对青简渲染器生效；保存皮肤文件即生效，不用动这份配置
+skin = ""
 # 组句中的拼音显示在哪：both 行内和候选窗口 / inline 只在行内 / window 只在候选窗口（应用里不放 marked text）
 preedit = "both"
 # 英文模式（Caps Lock 亮着）是否给英文候选：Tab 或方向键选词，空格、回车、标点仍原样上屏敲的字母；false 就是纯直通

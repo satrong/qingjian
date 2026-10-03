@@ -52,6 +52,7 @@ impl Host {
         }
         self.window.set_font(&config.general.font);
         self.window.set_renderer(config.general.renderer);
+        self.apply_skin();
         self.apply_learning_language(&config.general);
         if self.input_log_enabled != Some(config.general.input_log) {
             self.input_log_enabled = Some(config.general.input_log);
@@ -184,11 +185,25 @@ impl Host {
         }
     }
 
-    /// 激活期间的定时器每秒调一次：看配置文件，再看学习数据要不要落盘。
+    /// 解析 `[general] skin` 并推给候选窗；皮肤名与皮肤文件 / `themes/` 目录的 mtime 签名都没变时
+    /// 只 stat 不读盘。`apply_config` 与每秒的 [`Self::tick`] 都调它——只改皮肤文件、不碰 `config.toml` 也生效。
+    fn apply_skin(&mut self) {
+        let name = self.settings.config().general.skin.clone();
+        let stamp = skin_stamp(&name);
+        if matches!(&self.skin_applied, Some((n, s)) if *n == name && *s == stamp) {
+            return;
+        }
+        let themes = resolve_skin(&name);
+        self.skin_applied = Some((name, stamp));
+        self.window.set_skin(themes);
+    }
+
+    /// 激活期间的定时器每秒调一次：看配置文件与皮肤文件，再看学习数据要不要落盘。
     /// 学习数据原本只在停用输入法时保存，进程被 launchd 杀掉就丢一整段；现在最多丢 [`LEARNING_FLUSH_INTERVAL`] 这么久。
     /// 没有新数据时 flush 是空操作（各表按 dirty 位判断），不会每分钟碰一次磁盘。
     pub fn tick(&mut self) {
         self.reload_config_if_changed();
+        self.apply_skin();
         let learned = self.engine.poll_glosses();
         if learned > 0 {
             tracing::info!(learned, "释义兜底写入个人释义表");

@@ -41,7 +41,9 @@ use qingjian_translate::{Glossary, LayeredTranslator, LevelTable, PersonalGlossa
 
 use crate::app::BundleInfo;
 use crate::app::{Settings, logging, paths};
-use crate::candidates::{CandidateWindow, Frame, Preedit, Row};
+use crate::candidates::{
+    CandidateWindow, Frame, Preedit, Row, SkinStamp, resolve_skin, skin_stamp,
+};
 use crate::error::HostError;
 use crate::menubar::{InputMenu, MenuAction, ModeIndicator};
 use crate::preferences::{PreferencesWindow, Setting, SettingValue, UpdateStatus};
@@ -82,6 +84,10 @@ pub struct Host {
 
     /// 当前 Predictor 是按哪份 `[predict]` 建的；配置没变就不重建（重建会起新线程、丢缓存）。
     applied_predict: PredictConfig,
+
+    /// `[general] skin` 上次交给候选窗的值：皮肤名 + 皮肤文件 / 目录的 mtime 签名；
+    /// 两者都没变就只 stat 不读盘（定时器每秒来一次），见 [`Host::apply_skin`]。
+    skin_applied: Option<(String, SkinStamp)>,
 
     /// 附加词库是按哪份 `[dictionaries]` 装的；开关变了才重新加载。
     applied_dictionaries: DictionariesConfig,
