@@ -187,6 +187,9 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 （mac 壳与 Windows Server 共用，同名 `.qj` 优先于 `.tsv`）；`code_tables` 同构地列出 / 加载随包根 `codes/` 与用户 `codes/` 的码表
 （`[aux_code] disabled` 是黑名单，`[general] aux_code_key` 缺省 `;` 且校验后退回缺省、`aux_code_show` 是显示码开关）；
 `GeneralConfig.skin` 是皮肤名（空 = 不用皮肤，模板带说明；平台层只存字符串，读文件与解析在渲染器和各平台壳里，见 `docs/design/skin.md`）；
+`dirs::themes_dir()` 是用户皮肤目录（`user_dir()/themes`，不负责创建）；`Config::write_themes_readme_if_missing(config_path)`
+首次运行在配置旁 `themes/` 写 `README.md`（`THEMES_README` 常量：格式、键名表、最小例子），
+mac 设置、win Server、win 设置三处与配置模板同一时机调；
 `protocol` 模块是 Windows Server ↔ TSF DLL 的 IPC 协议类型
 （`ClientMessage` / `ServerMessage` / `Frame` / `PreeditSegment`，全 serde，两端共用，见 `docs/design/architecture.md`「Windows：TSF」；
 `PROTOCOL_VERSION` = 7（v7 加任务栏图标右键菜单的 `Indicator`），`PreeditKind::AuxCode` 对应 Core 的 `MarkedKind::AuxCode`，`Frame.aux_code_show` 随帧下发显示码开关）。
@@ -208,6 +211,9 @@ workspace `[patch.crates-io]` 钉 rev；2026-10-03 起字体实例按（字重�
 皮肤文件（`docs/design/skin.md`）：`ThemeFile::from_toml` 读 `[skin]` 表（元数据 + 可选的 `light` / `dark` 分节），`resolve(dark)` 以内置
 `Theme::light()` / `Theme::dark()` 为底逐字段覆盖；分节是 `theme/patch.rs` 的 `ThemePatch`（全字段 `Option` 的部分覆盖），颜色写 `#RRGGBB(AA)`，
 色值格式非法只回退那一个字段并 warn，结构错误（缺 `[skin]`、键名拼错、类型不对）则整份失败、调用方回退内置主题。
+列皮肤用 `ThemeFile::collect_themes(dir, into)` 扫一个 `themes/` 目录：同 id 后写覆盖、读不了 / 解析不了的返回给调用方记警告，
+`SkinEntry`（`id` 文件名去 `.toml` / `label` 显示名 / `themes` 两套）是两平台设置页列表的行类型——
+mac `candidates/skin.rs::list()` 与 win 设置 `pages/candidates.rs::list_skins()` 都只负责拼「随包 + 用户」两个目录再排序。
 消费方是 mac 壳的 `candidates/skin.rs`（按名字定位 `themes/*.toml`、解析并经 `window.set_skin` 下发，见 `apps/macos` 一节）。
 
 ## crates/qingjian-update
@@ -247,6 +253,9 @@ IMK 输入法，源码按 `app / host / imk / candidates / menubar / preferences
 - 输入法菜单（状态项 + 系统输入源菜单）与偏好设置窗口都是配置文件的前端：只写 `config.toml`，`Host::apply_config` 一条通路热加载，激活期间每秒看一次文件 mtime；
   皮肤另有热加载（`Host::apply_skin`）：每秒 stat 皮肤文件与 `themes/` 目录的 mtime 签名，变了才重读解析，只改皮肤不碰 `config.toml` 也生效；
   解析在 `candidates/skin.rs`（用户 `themes/` 优先、随包 `Resources/themes/` 兜底），经 `window.set_skin` 下发给位图渲染器，系统绘制路径不接（皮肤只在青简渲染器下生效）。
+  偏好设置「候选窗口」页的选择器在 `preferences/skin_picker/`：照 `font_picker` 的按钮 + `NSPopover` + 搜索框 + `NSTableView`，
+  每行左右两半用该皮肤的浅 / 深配色渲染名字当预览、首行「默认」= 不用皮肤，选中即经 `change_setting`（`Setting::Skin`，tag 61，进 `tags_round_trip`）落盘；
+  行列表由 `candidates::list_skins()`（`skin.rs::list()`）给，随包 + 用户两个目录、同 id 用户覆盖。
   输入方案（`[general] scheme`）也在这里装配：双拼 / 注音设给引擎，形码额外按 `paths::code_table_path()` 挂码表
   （用户目录 `wubi/wubi86.tsv` 优先，包里 `Resources/wubi/` 兜底；找不到只警告并按拼音跑）。
 - `apps/macos/scripts/bundle.sh --install` 打包安装到 `~/Library/Input Methods/`（开发用），`--pkg` 做分发用的 pkg（装 `/Library/Input Methods/`，postinstall 跑 `qingjian-macos --register`
@@ -280,6 +289,12 @@ Server 侧辅码接线：`RouterConfig.aux_code_key` / `aux_code_show`（`apply_
 大写（`shift_letter = "compose"`）先清码段回拼音态再进缓冲区、标点先上屏高亮候选再转全角）、候选窗 `ui/candidates/row.rs` 的 `Row.code` 把码用方括号括起来紧跟在候选词后面（不进 annotation），拼音行 `view.rs` 给码段加下划线。
 热加载的 `dicts/` 与 `codes/` 目录与启动同款（修过一处传基础目录的错）。不合成一个 crate，因为 DLL 不能带 Engine 的依赖树，见 `apps/windows/README.md`；
 协议类型在 `qingjian-platform::protocol`，设计见 `docs/design/architecture.md`「Windows：TSF」。
+皮肤（`docs/design/skin.md`）：`RouterConfig.skin_name` + `RenderSettings.skin`（`SkinThemes`）从 `[general] skin` 解析随配置下发，
+`dispatch/skin.rs` 负责定位与签名（用户 `%APPDATA%\Qingjian\themes` 优先、随包 `bundled_root()/themes` 兜底；
+`ConfigReload` 盯皮肤文件与 `themes/` 目录的 mtime，只改皮肤不碰 `config.toml` 也热加载），失败回退内置并记一次警告；
+UI 线程 `ui/painter` 的 `configure` 在字体或皮肤变化时才重建，候选窗与状态条 `restyle()` 原地重画。设置程序「候选窗口」页的「皮肤」下拉
+（`panel/message.rs::Message::Skin`，第 0 项「默认」= 不用皮肤）建窗时用 `pages/candidates.rs::list_skins()` 列随包 + 用户皮肤。
+分页仍按 `page_size`，皮肤的 `max_rows` 未接（与 mac 的已知差异）。
 输入方案由 `[general] scheme` 一处决定，Server 启动与热加载各装配一次；形码的码表用 `dispatch::code::find_code_table` 找
 （用户目录 `wubi/wubi86.tsv` 优先，随包 `assets/wubi/wubi86.tsv` 兜底——走 `assets/` 与 emoji / levels 一致，开发布局也对得上），**路径在启动时定下、热加载不重新找**。
 选了形码却没有码表文件时只警告并按拼音跑——配置说五笔、引擎还在拼音是静默错位，宁可吵。

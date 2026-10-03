@@ -99,8 +99,11 @@
   前置 opsz 按字号分键已改（fork 分支提交待推送钉 rev + 渲染器按字号设 opsz、倍数变化清字形缓存，`rendering.md:93`）。
   P2 mac 已完成（2026-10-03）：`[general] skin` 字段与模板、`candidates/skin.rs` 解析下发、热加载 stat 皮肤文件与 `themes/` 目录、
   分页 `max_rows` 跟皮肤走；真机验（`bundle.sh --install`）与 CoreText 大字号 opsz 对照待跑。
-  剩：Windows 打通（`RenderSettings` 下发、`sync_theme` 失效条件，真机验；本机 windows-gnu 交叉检查缺 mingw，
-  `onig_sys` 编不过——环境问题，与皮肤无关）、设置页加皮肤选择（mac 照 `font_picker` 的 popover + 列表，进 `tags_round_trip`）+ 内置皮肤打包、文档收尾。
+  P3 Windows 已完成（2026-10-03）：`RenderSettings` 下发、`ConfigReload` 皮肤签名热加载、`restyle()` 原地重画
+  （分页仍按 `page_size`，`max_rows` 未接皮肤——与 mac 的已知差异）。
+  P4 设置页 + 内置皮肤已完成（2026-10-03）：mac `Setting::Skin` + `skin_picker` 预览列表、win `Message::Skin` 下拉、
+  随包夜航 / 竹青 / 蜜柑三套进 `bundle.sh` 与 `qingjian.iss`、首次运行 `themes/README.md`；真机验待跑。
+  P5 文档已完成（2026-10-03）。剩：两平台真机验（清单在 `TODO.md.local`）、fork 推送钉新 rev。
   皮肤只在青简渲染器下生效，不做 AppKit / GDI 降级映射；
   不做图片 / 动图、不做 Linux、不做在线市场（`rendering.md:112` 的装饰层留到以后）。
 

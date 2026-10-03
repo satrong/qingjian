@@ -128,9 +128,18 @@ fork 的 `font_cache` 改按（字重，光学字号）分键、`set_optical_siz
 2. **macOS 打通（2026-10-03 完成）**：`[general] skin` 配置字段与模板、`candidates/skin.rs` 解析下发
    （`Host::apply_config` → `window.set_skin` → `BitmapPainter`，相同皮肤不重画）、tick 里 stat 皮肤文件与
    `themes/` 目录 mtime 热加载、分页 `max_rows` 跟皮肤走（仅青简渲染器）；`bundle.sh --install` 真机验待跑。
-3. **Windows 打通**：`RenderSettings` 下发、`sync_theme` 失效条件，真机验（本机只 `cargo check --target x86_64-pc-windows-gnu`）。
-4. **设置页 + 内置皮肤**：两平台选择器；内置 2–3 个皮肤进 `bundle.sh` 白名单与 `qingjian.iss`；首次运行建 `themes/` 目录并放 README 说明格式。
-5. **文档**：`crate-notes.md` render 与 platform 两节、`docs/user/` 偏好设置页、`rendering.md` 指过来。
+3. **Windows 打通（2026-10-03 完成）**：`RenderSettings` 加 `skin` 下发、`ConfigReload` 签名盯皮肤文件与
+   `themes/` 目录、`Painter::configure` 字体或皮肤变了才重建、候选窗与状态条 `restyle()` 原地重画；
+   真机验待跑，本机 windows-gnu 交叉检查覆盖 `platform` / `render` / `windows-settings`
+   （server 卡在 `onig_sys` 缺 mingw——环境问题，见 `todo.md`）。分页仍按 `page_size`
+   （设计落点表无此项），`max_rows` 未接皮肤，与 mac 有已知差异。
+4. **设置页 + 内置皮肤（2026-10-03 完成）**：mac `Setting::Skin`（tag 61，进 `tags_round_trip`）+
+   `preferences/skin_picker/`（照 `font_picker` 的 popover + 搜索 + 列表，每行浅 / 深两半用皮肤配色渲染名字当预览）；
+   win `Message::Skin` 下拉（第 0 项「默认」）。仓库根 `themes/` 夜航 / 竹青 / 蜜柑三套（`preview --skin` 逐色核对）
+   进 `bundle.sh` 与 `qingjian.iss`；`Config::write_themes_readme_if_missing` 首次运行在配置旁 `themes/`
+   写 README（mac 设置、win Server、win 设置三处接入）；真机验待跑。
+5. **文档（2026-10-03 完成）**：`crate-notes.md` render / platform / macos / windows 四节、
+   `docs/user/settings/preferences.md` 候选窗口行加皮肤、`rendering.md` 指过来（116 行）。
 
 ## 留到以后
 
