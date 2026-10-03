@@ -367,6 +367,72 @@ channel = "stable"
 "#
 );
 
+/// 首次运行放进 `themes/` 的说明：皮肤文件格式、键名与最小例子。
+/// 与 [`TEMPLATE`] 一样是产品文案，改格式时两处一起改。
+pub const THEMES_README: &str = r##"# 候选窗皮肤（themes/）
+
+这个目录放皮肤文件：一个 `.toml` 就是一个皮肤，在「设置 → 候选窗口 → 皮肤」里选择。
+文件名去掉 `.toml` 就是配置 `[general] skin` 里写的值；改文件或改选择后约 1 秒生效，不用重启。
+皮肤只对青简渲染器生效，叠在「外观」（跟随系统 / 浅色 / 深色）选出的配色之上；
+没选皮肤（或文件读不出来）时用内置主题。
+
+## 最小例子
+
+新建 `night.toml`（文件名随意，含中文也没问题）：
+
+```toml
+[skin]
+name = "夜航"                    # 设置里显示的名字，缺省用文件名
+author = "…"                     # 可选
+description = "深夜蓝底、琥珀字"  # 可选
+
+# 下面两个分节都可选，缺哪个回退内置的浅 / 深主题；
+# 分节里缺哪个字段回退该分节的默认值——可以只改颜色不动字号。
+[skin.dark]
+background = "#101826"
+text = "#ffd479"
+highlight = "#1d2b40"
+corner_radius = 12.0
+max_rows = 7
+
+[skin.dark.text_font]
+size = 17.0
+line_height = 20.0
+
+[skin.light]
+background = "#fbfaf7"
+text = "#22201c"
+highlight = "#e8e2d6"
+```
+
+存盘、到设置里选「夜航」即可；之后只改文件也有约 1 秒自动刷新。
+
+## 能写的键
+
+颜色一律写 `#RRGGBB` 或 `#RRGGBBAA` 十六进制字符串；写错的色值只回退那一个字段
+（日志里有警告），不影响同文件其他字段。
+
+| 键 | 含义 |
+| --- | --- |
+| `background` | 窗口背景 |
+| `highlight` | 当前候选的高亮底色 |
+| `text` | 候选词 |
+| `gloss` | 译文 / 注释 |
+| `pos` | 词性 |
+| `fresh` | 生词译文 |
+| `index` | 序号 |
+| `cloud` | 云联想的云朵与文字 |
+
+字号与行高（单位：点）三组：`text_font` 候选词、`annotation_font` 译文与词性、`index_font` 序号，
+写成表 `text_font = { size = 17.0, line_height = 20.0 }`，或单开一节（见上面例子）。
+**字族不在皮肤里**：字体在「设置 → 候选窗口 → 字体」改，与皮肤互不干扰。
+
+数值键：`padding` 窗口内边距、`row_padding` 行内上下留白、`column_gap` 列间距、
+`corner_radius` 圆角、`max_rows` 最多显示几行、`text_gamma` 文字抗锯齿 gamma（一般不改）。
+
+完整格式与设计取舍见仓库 `docs/design/skin.md`。
+"##;
+
 impl Config {
     /// 保存自定义短语列表，冲突时不修改文件。
     pub fn set_custom_phrases(
@@ -544,6 +610,23 @@ impl Config {
         write_file(path, TEMPLATE)?;
         Ok(true)
     }
+
+    /// 配置旁的 `themes/` 没有 `README.md` 就写一份（目录一并建），返回是否写了。
+    /// 皮肤格式说明随首次运行到位；各入口与配置模板同一时机调。
+    pub fn write_themes_readme_if_missing(path: &Path) -> Result<bool, ConfigError> {
+        let Some(dir) = path.parent() else {
+            return Ok(false);
+        };
+        if dir.as_os_str().is_empty() {
+            return Ok(false);
+        }
+        let readme = dir.join("themes").join("README.md");
+        if readme.exists() {
+            return Ok(false);
+        }
+        write_file(&readme, THEMES_README)?;
+        Ok(true)
+    }
 }
 
 /// 原子写配置文件；数据目录还没有就先建（新账户第一次打开设置时输入法可能还没跑过）。
@@ -672,6 +755,20 @@ mod tests {
         let config = Config::load(&path).unwrap();
         assert!(config.fuzzy.z_zh && config.fuzzy.n_l && config.predict.enabled);
         let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn themes_readme_written_once_beside_the_config() {
+        let dir = std::env::temp_dir().join("qingjian-themes-readme-test");
+        let _ = std::fs::remove_dir_all(&dir);
+        let path = dir.join("Qingjian").join("config.toml");
+        assert!(Config::write_themes_readme_if_missing(&path).unwrap());
+        assert!(!Config::write_themes_readme_if_missing(&path).unwrap());
+        let readme = dir.join("Qingjian").join("themes").join("README.md");
+        let text = std::fs::read_to_string(&readme).unwrap();
+        assert!(text.contains("# 候选窗皮肤"));
+        assert!(text.contains("max_rows"));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

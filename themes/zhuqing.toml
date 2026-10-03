@@ -1,0 +1,31 @@
+# 竹青：宣纸底、竹绿高亮。青简随包皮肤，改这个文件约 1 秒生效。
+# 格式说明见配置目录 themes/README.md（首次运行自动生成）与 docs/design/skin.md。
+
+[skin]
+name = "竹青"
+author = "青简"
+description = "宣纸底、竹绿高亮"
+
+# 浅色外观：微绿的宣纸，墨绿字，选中像压了一片竹叶
+[skin.light]
+background = "#f6f8f4"
+highlight = "#dcebd8"
+text = "#1f2a22"
+gloss = "#5c6f60"
+pos = "#7d8f80"
+index = "#7d8f80"
+fresh = "#c0561b"
+cloud = "#1a8a72"
+corner_radius = 6.0
+
+# 深色外观：松烟墨，字带一点竹绿，高亮是深潭绿
+[skin.dark]
+background = "#121814"
+highlight = "#1e3326"
+text = "#d7e6d4"
+gloss = "#8fa892"
+pos = "#6d8271"
+index = "#6d8271"
+fresh = "#ff9d4d"
+cloud = "#4fd0b4"
+corner_radius = 6.0

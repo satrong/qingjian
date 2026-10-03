@@ -1,0 +1,31 @@
+# 蜜柑：奶油底、橘色高亮。青简随包皮肤，改这个文件约 1 秒生效。
+# 格式说明见配置目录 themes/README.md（首次运行自动生成）与 docs/design/skin.md。
+
+[skin]
+name = "蜜柑"
+author = "青简"
+description = "奶油底、橘色高亮"
+
+# 浅色外观：奶油底，橘色生词与高亮，像剥开的蜜柑
+[skin.light]
+background = "#fffaf3"
+highlight = "#ffe4c4"
+text = "#2b2118"
+gloss = "#7a6a58"
+pos = "#96836c"
+index = "#96836c"
+fresh = "#e8590c"
+cloud = "#0e9aa7"
+corner_radius = 10.0
+
+# 深色外观：焦糖夜色，奶油字，高亮是烤过的橘皮
+[skin.dark]
+background = "#1d1712"
+highlight = "#43301c"
+text = "#ffe8d1"
+gloss = "#c4a88f"
+pos = "#9c8770"
+index = "#9c8770"
+fresh = "#ff9d4d"
+cloud = "#55d0e0"
+corner_radius = 10.0

@@ -1,0 +1,31 @@
+# 夜航：深夜蓝底、琥珀字。青简随包皮肤，改这个文件约 1 秒生效。
+# 格式说明见配置目录 themes/README.md（首次运行自动生成）与 docs/design/skin.md。
+
+[skin]
+name = "夜航"
+author = "青简"
+description = "深夜蓝底、琥珀字"
+
+# 深色外观：墨蓝夜空，候选词用暖琥珀，高亮是更深的一层蓝
+[skin.dark]
+background = "#101826"
+highlight = "#1d2b40"
+text = "#ffd479"
+gloss = "#9db4d0"
+pos = "#6f87a6"
+index = "#6f87a6"
+fresh = "#ff9d4d"
+cloud = "#4fd0dd"
+corner_radius = 12.0
+
+# 浅色外观：暖纸白，墨字琥珀高亮，与深色那套同一家族
+[skin.light]
+background = "#fbfaf7"
+highlight = "#f6e3bd"
+text = "#22201c"
+gloss = "#6b675f"
+pos = "#8a8577"
+index = "#8a8577"
+fresh = "#e06a1b"
+cloud = "#0f8fa0"
+corner_radius = 12.0

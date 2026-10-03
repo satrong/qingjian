@@ -102,6 +102,8 @@ Source: "{#Repo}\assets\levels\levels-ja.tsv";   DestDir: "{app}\assets\levels";
 ; 开发布局（cargo run）也对得上
 Source: "{#Repo}\assets\wubi\wubi86.tsv";        DestDir: "{app}\assets\wubi";   Flags: ignoreversion
 Source: "{#Repo}\assets\sample\dict.tsv";        DestDir: "{app}\assets\sample"; Flags: ignoreversion
+; 随包皮肤（仓库根 themes\：夜航、竹青、蜜柑）：与资源根并列，设置页「皮肤」列随包项，同名时用户 themes\ 优先
+Source: "{#Repo}\themes\*.toml";                 DestDir: "{app}\themes";        Flags: ignoreversion skipifsourcedoesntexist
 ; —— Server 放最后：它一落地，旧版 DLL 就能把它拉起来并占住数据文件（见文件头）——
 Source: "{#Repo}\target\release\qingjian-server.exe";   DestDir: "{app}"; Flags: ignoreversion
 

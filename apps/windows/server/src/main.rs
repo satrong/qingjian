@@ -26,6 +26,11 @@ fn write_config_template() -> Option<Result<bool, ConfigError>> {
     Some(Config::write_template_if_missing(&config_path()?))
 }
 
+/// 首次启动在配置旁的 `themes/` 放皮肤格式说明（与 macOS 一样），结果同样交给 `main` 记。
+fn write_themes_readme() -> Option<Result<bool, ConfigError>> {
+    Some(Config::write_themes_readme_if_missing(&config_path()?))
+}
+
 /// 文件不存在按默认值；解析失败记错误退回默认。
 fn load_config() -> Config {
     match config_path() {
@@ -126,11 +131,17 @@ fn main() {
 
     // 日志级别取自配置，所以先写模板、读配置，再装日志。
     let template = write_config_template();
+    let readme = write_themes_readme();
     let config = load_config();
     let _log_guard = init_logging(&config);
     match template {
         Some(Ok(true)) => tracing::info!("已写出配置模板"),
         Some(Err(error)) => tracing::warn!(%error, "写配置模板失败"),
+        _ => {}
+    }
+    match readme {
+        Some(Ok(true)) => tracing::info!("已写出皮肤目录说明"),
+        Some(Err(error)) => tracing::warn!(%error, "写皮肤目录说明失败"),
         _ => {}
     }
     let language = learning_language(&config);

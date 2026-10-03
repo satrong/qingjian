@@ -41,6 +41,11 @@ impl Settings {
                 Ok(false) => {}
                 Err(error) => tracing::warn!(%error, "写配置模板失败"),
             }
+            match Config::write_themes_readme_if_missing(&path) {
+                Ok(true) => tracing::info!(path = %path.display(), "已写出皮肤目录说明"),
+                Ok(false) => {}
+                Err(error) => tracing::warn!(%error, "写皮肤目录说明失败"),
+            }
             settings.read(&path);
         }
         settings

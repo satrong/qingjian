@@ -87,9 +87,13 @@ impl Settings {
     }
 
     /// 配置文件不在就写出模板：这个账户下 Server 还没跑过时，保存与「在记事本中打开」都要有文件。
+    /// 顺带把 `themes/` 的格式说明一并备好（首次运行只有说明、没有皮肤文件也没关系）。
     fn ensure_config_file(path: &Path) {
         if let Err(error) = Config::write_template_if_missing(path) {
             crate::log::warn(format!("写配置模板失败: {error}"));
+        }
+        if let Err(error) = Config::write_themes_readme_if_missing(path) {
+            crate::log::warn(format!("写皮肤目录说明失败: {error}"));
         }
     }
 
