@@ -1,5 +1,8 @@
 //! 皮肤文件：`themes/*.toml` 的 `[skin]` 一节，元数据加深浅两个可选分节，解析后与内置主题合并。
 
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+
 use serde::Deserialize;
 
 use crate::theme::{Theme, ThemePatch};
@@ -60,6 +63,69 @@ impl ThemeFile {
             dark: self.resolve(true),
         }
     }
+
+    /// 扫一个皮肤目录的 `*.toml` 收进表：同 id 后写覆盖先写，目录读不了当空；
+    /// 读不了 / 解析不了的文件收进返回值（路径 + 原因），调用方负责记警告。
+    pub fn collect_themes(
+        dir: &Path,
+        into: &mut BTreeMap<String, SkinEntry>,
+    ) -> Vec<(PathBuf, String)> {
+        let mut failed = Vec::new();
+        let Ok(read) = std::fs::read_dir(dir) else {
+            return failed;
+        };
+        for entry in read.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|ext| ext.to_str()) != Some("toml") {
+                continue;
+            }
+            let Some(id) = path.file_stem().and_then(|stem| stem.to_str()) else {
+                continue;
+            };
+            // id 进配置再回读，这里就挡掉带路径分隔符的名字
+            if id.is_empty() || id.contains('/') || id.contains('\\') {
+                continue;
+            }
+            let Ok(text) = std::fs::read_to_string(&path) else {
+                failed.push((path, "读不了".to_owned()));
+                continue;
+            };
+            match ThemeFile::from_toml(&text) {
+                Ok(file) => {
+                    let label = file
+                        .name
+                        .as_deref()
+                        .map(str::trim)
+                        .filter(|name| !name.is_empty())
+                        .unwrap_or(id)
+                        .to_owned();
+                    into.insert(
+                        id.to_owned(),
+                        SkinEntry {
+                            id: id.to_owned(),
+                            label,
+                            themes: file.themes(),
+                        },
+                    );
+                }
+                Err(error) => failed.push((path, format!("解析失败：{error}"))),
+            }
+        }
+        failed
+    }
+}
+
+/// 设置页列皮肤用的一行（只收解析得动的文件，坏文件进不了列表）。
+#[derive(Debug, Clone)]
+pub struct SkinEntry {
+    /// 写进配置的值：文件名去掉 `.toml`。
+    pub id: String,
+
+    /// 显示名：皮肤 `[skin] name`，缺省用 id。
+    pub label: String,
+
+    /// 深浅两套，预览行按它取配色。
+    pub themes: SkinThemes,
 }
 
 /// 皮肤解析出的深浅两套渲染主题；没配皮肤、文件缺失或解析失败时就是内置默认。
