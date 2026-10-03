@@ -14,5 +14,7 @@ pub(crate) use bitmap::available_families;
 pub use frame::Frame;
 pub use preedit::Preedit;
 pub use row::Row;
-pub(crate) use skin::{SkinStamp, resolve as resolve_skin, stamp as skin_stamp};
+pub(crate) use skin::{
+    SkinEntry, SkinStamp, list as list_skins, resolve as resolve_skin, stamp as skin_stamp,
+};
 pub use window::CandidateWindow;

@@ -5,11 +5,12 @@ use objc2::rc::Retained;
 use objc2_app_kit::{NSButton, NSPopUpButton};
 use qingjian_platform::{CandidateRenderer, Config, LayoutMode, PreeditMode, ThemeMode};
 
-use crate::candidates::available_families;
+use crate::candidates::{available_families, list_skins};
 use crate::preferences::controls::{checkbox, note, row_checkbox, row_popup, select, set_checked};
 use crate::preferences::font_picker::FontPicker;
 use crate::preferences::layout::Layout;
 use crate::preferences::setting::Setting;
+use crate::preferences::skin_picker::SkinPicker;
 use crate::preferences::target::PreferencesTarget;
 
 pub struct CandidatesPage {
@@ -24,6 +25,9 @@ pub struct CandidatesPage {
 
     /// 青简渲染器 / 系统绘制。
     renderer: Retained<NSPopUpButton>,
+
+    /// 候选窗皮肤：搜索框 + 列表，每行用皮肤配色预览。
+    skin: SkinPicker,
 
     /// 候选窗字体：搜索框 + 列表。
     font: FontPicker,
@@ -70,6 +74,12 @@ impl CandidatesPage {
             target,
         );
         note(layout, mtm, "青简渲染器让候选窗口在各平台一致。");
+        let skin = SkinPicker::build(layout, mtm, "皮肤", list_skins());
+        note(
+            layout,
+            mtm,
+            "只对青简渲染器生效；文件放配置目录 themes/（里面有格式说明），存盘约 1 秒生效。",
+        );
         let font = FontPicker::build(layout, mtm, "字体", available_families(mtm));
         note(
             layout,
@@ -98,6 +108,7 @@ impl CandidatesPage {
             layout_mode,
             horizontal_grid,
             renderer,
+            skin,
             font,
             preedit,
         }
@@ -123,6 +134,7 @@ impl CandidatesPage {
                 .position(|r| *r == general.renderer),
         );
         self.font.sync(&general.font);
+        self.skin.sync(&general.skin);
         select(
             &self.preedit,
             PreeditMode::ALL.iter().position(|p| *p == general.preedit),

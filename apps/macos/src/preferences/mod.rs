@@ -17,6 +17,7 @@ mod layout;
 mod pages;
 mod panel;
 mod setting;
+mod skin_picker;
 mod target;
 mod window;
 

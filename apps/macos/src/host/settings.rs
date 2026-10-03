@@ -200,6 +200,10 @@ impl Host {
                 let font = if font == DEFAULT_FONT_LABEL { "" } else { font };
                 self.settings.set_value("general", "font", font);
             }
+            (Setting::Skin, SettingValue::Text(id)) => {
+                // id 是 themes/ 下的文件名去掉 .toml；空为不用皮肤
+                self.settings.set_value("general", "skin", id.trim());
+            }
             (Setting::Layout, SettingValue::Index(index)) => {
                 if let Some(layout) = LayoutMode::ALL.get(index) {
                     self.settings.set_value("general", "layout", layout.key());

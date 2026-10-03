@@ -38,6 +38,9 @@ pub enum Setting {
     /// `[general] font`，字体列表选中的字族名；「系统默认」为系统字体。
     Font,
 
+    /// `[general] skin`，皮肤列表选中的皮肤 id（文件名去掉 `.toml`，空为不用皮肤）。
+    Skin,
+
     /// `[shortcut] expression`，弹出菜单 v / u / i。
     ExpressionKey,
 
@@ -273,6 +276,7 @@ impl Setting {
             Self::Wubi => 49,
             Self::Renderer => 43,
             Self::Font => 44,
+            Self::Skin => 61,
             Self::SystemTextReplacements => 46,
             Self::Fuzzy(index) => FUZZY_TAG_BASE + index as NSInteger,
             Self::DictionaryEnabled(index) => DICTIONARY_ENABLED_TAG_BASE + index as NSInteger,
@@ -288,6 +292,7 @@ impl Setting {
             4 => Self::Theme,
             43 => Self::Renderer,
             44 => Self::Font,
+            61 => Self::Skin,
             5 => Self::ExpressionKey,
             6 => Self::QuestionKey,
             41 => Self::QuestionMark,
@@ -371,6 +376,7 @@ mod tests {
             Setting::Theme,
             Setting::Renderer,
             Setting::Font,
+            Setting::Skin,
             Setting::ExpressionKey,
             Setting::QuestionKey,
             Setting::CloudEnabled,

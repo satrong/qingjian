@@ -3,6 +3,7 @@
 //! 格式与逐层回退在 [`qingjian_render::ThemeFile`]；这里只管定位文件、读文本与失败时回退内置。
 //! 皮肤只在青简渲染器下生效，AppKit 绘制路径不接（见 `docs/design/skin.md`）。
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
@@ -11,6 +12,78 @@ use qingjian_render::ThemeFile;
 pub use qingjian_render::SkinThemes;
 
 use crate::app::paths;
+
+/// 设置页列皮肤用的一行（只收解析得动的文件，坏文件进不了列表）。
+#[derive(Debug, Clone)]
+pub struct SkinEntry {
+    /// 写进配置的值：文件名去掉 `.toml`。
+    pub id: String,
+
+    /// 显示名：皮肤 `[skin] name`，缺省用 id。
+    pub label: String,
+
+    /// 深浅两套，预览行按它取配色。
+    pub themes: SkinThemes,
+}
+
+/// 随包 + 用户 `themes/` 里全部可解析的皮肤，按显示名排序；同 id 时用户目录覆盖随包的。
+pub fn list() -> Vec<SkinEntry> {
+    let mut entries = BTreeMap::new();
+    let bundled = paths::resources_dir().ok().map(|dir| dir.join("themes"));
+    collect(bundled.as_deref(), &mut entries);
+    collect(paths::themes_dir().as_deref(), &mut entries);
+    let mut entries: Vec<SkinEntry> = entries.into_values().collect();
+    entries.sort_by(|a, b| a.label.cmp(&b.label));
+    entries
+}
+
+/// 把一个目录下的 `*.toml` 收进表里；读不了 / 解析不了的跳过并警告。
+fn collect(dir: Option<&std::path::Path>, into: &mut BTreeMap<String, SkinEntry>) {
+    let Some(dir) = dir else {
+        return;
+    };
+    let Ok(read) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in read.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) != Some("toml") {
+            continue;
+        }
+        let Some(id) = path.file_stem().and_then(|stem| stem.to_str()) else {
+            continue;
+        };
+        if !is_valid(id) {
+            continue;
+        }
+        let Ok(text) = std::fs::read_to_string(&path) else {
+            tracing::warn!(path = %path.display(), "皮肤文件读不了，不进列表");
+            continue;
+        };
+        match ThemeFile::from_toml(&text) {
+            Ok(file) => {
+                let label = file
+                    .name
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|name| !name.is_empty())
+                    .unwrap_or(id)
+                    .to_owned();
+                into.insert(
+                    id.to_owned(),
+                    SkinEntry {
+                        id: id.to_owned(),
+                        label,
+                        themes: file.themes(),
+                    },
+                );
+            }
+            Err(error) => {
+                tracing::warn!(%error, path = %path.display(), "皮肤文件解析失败，不进列表");
+            }
+        }
+    }
+}
 
 /// 皮肤文件与 `themes/` 目录的修改时间签名（没有的那项为 `None`）。
 /// 热加载每秒只 stat 这两下，签名变了才重新读盘解析。
