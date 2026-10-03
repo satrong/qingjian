@@ -31,6 +31,19 @@ pub(crate) struct TextPainter {
     gamma_tables: HashMap<u32, Box<[u8; 256]>>,
 }
 
+/// 20 pt 以下的光学字号档（点）。
+const TEXT_OPTICAL_SIZE: f32 = 17.0;
+
+/// 光学字号（点）：带 `opsz` 轴的字体（SF Pro 等）按字号挑视觉尺寸。CoreText 对 20 pt 以下的系统字体用
+/// 17（文本视觉尺寸），大字号直接用字号；超出轴范围的值由 cosmic-text clamp 回轴上。
+fn optical_size(points: f32) -> f32 {
+    if points < 20.0 {
+        TEXT_OPTICAL_SIZE
+    } else {
+        points
+    }
+}
+
 impl TextPainter {
     pub(crate) fn new(library: FontLibrary) -> Self {
         let mut font_system = library.into_font_system();
@@ -44,10 +57,10 @@ impl TextPainter {
         }
     }
 
-    /// 光学字号（点）：SF 这类带 `opsz` 轴的字体在小字号用文本视觉尺寸，CoreText 对系统字体自动做，这里要显式给。
-    /// 现在是整个画笔一个值（cosmic-text 的字体实例缓存没按它分键），候选窗几种字号都在 20 pt 以下，落到同一档。
-    pub(crate) fn set_optical_size(&mut self, points: Option<f32>) {
-        self.font_system.set_optical_size(points);
+    /// 清字形栅格缓存：字形图是按「像素字号 + 当时的光学字号」栅格的，而缓存键只有像素字号——
+    /// 倍数一变，同样的像素字号可能对应不同的点字号与光学字号，旧图不能复用（字体实例缓存按光学字号分键，不用动）。
+    pub(crate) fn reset_glyph_cache(&mut self) {
+        self.cache = SwashCache::new();
     }
 
     /// 一段文字的宽高（像素）。高度就是行高。
@@ -154,6 +167,10 @@ impl TextPainter {
     }
 
     fn shape(&mut self, text: &str, style: &TextStyle) {
+        // 整形前按这段文字的字号切光学字号：字体实例按（字重，光学字号）分键（fork 的分键补丁），
+        // 来回切只换指针不重载；栅格在 draw 里跟着同一个值走，measure 不栅格不受影响
+        self.font_system
+            .set_optical_size(Some(optical_size(style.points)));
         let attrs = Attrs::new()
             .family(UI_FAMILY)
             .color(style.color.to_cosmic());

@@ -43,15 +43,15 @@ const INDEX_GAP: f32 = 3.0;
 /// 横排时高亮底色在候选两侧多出的宽度（点）。
 const HIGHLIGHT_INSET: f32 = 5.0;
 
-/// 光学字号（点）：20 pt 以下 CoreText 给系统字体用的就是这一档。
-const OPTICAL_SIZE: f32 = 17.0;
-
 /// 竖排候选窗口的最小宽度（点）。
 const MIN_VERTICAL_WIDTH: f32 = 200.0;
 
 pub struct Renderer {
     /// 文字测绘。
     text: TextPainter,
+
+    /// 上一帧的倍数：变了要清字形栅格缓存，见 [`TextPainter::reset_glyph_cache`]。
+    last_scale: Option<f32>,
 }
 
 /// 一次渲染期间的上下文：主题按倍数换算后的像素值。
@@ -124,9 +124,10 @@ impl Metrics<'_> {
 
 impl Renderer {
     pub fn new(library: FontLibrary) -> Self {
-        let mut text = TextPainter::new(library);
-        text.set_optical_size(Some(OPTICAL_SIZE));
-        Self { text }
+        Self {
+            text: TextPainter::new(library),
+            last_scale: None,
+        }
     }
 
     /// 画一帧。`scale` 是点 → 像素的倍数（Retina 为 2）；带 `shadow` 时位图四周留出阴影的边。
@@ -138,6 +139,10 @@ impl Renderer {
         scale: f32,
         shadow: Option<&Shadow>,
     ) -> Result<Rendered, RenderError> {
+        if self.last_scale != Some(scale) {
+            self.text.reset_glyph_cache();
+            self.last_scale = Some(scale);
+        }
         let metrics = Metrics { theme, scale };
         let (content_width, content_height) = self.preferred_size(frame, layout, &metrics);
         let margin = shadow.map_or(0.0, |s| metrics.px(s.margin()));
