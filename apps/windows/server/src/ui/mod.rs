@@ -203,7 +203,14 @@ fn apply(
                 status.hide();
             }
         }
-        UiCommand::Configure(settings) => Painter::configure(painter, &settings),
+        UiCommand::Configure(settings) => {
+            Painter::configure(painter, &settings);
+            // 正在显示的窗口按新画法原地重画（改皮肤 / 字体立刻见效，不用等下次按键）。
+            window.restyle();
+            if let Some(status) = status {
+                status.restyle();
+            }
+        }
     }
 }
 

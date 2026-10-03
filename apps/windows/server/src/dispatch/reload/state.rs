@@ -69,6 +69,10 @@ pub(crate) struct ConfigReload {
     /// 上次看到的 mtime。
     pub(super) last_mtime: Option<SystemTime>,
 
+    /// 上次看到的皮肤签名（皮肤文件 + 用户 `themes/` 目录的 mtime）：
+    /// 只改皮肤不碰 `config.toml` 也要能生效（`docs/design/skin.md`「热加载」）。
+    pub(super) skin_stamp: crate::dispatch::skin::SkinStamp,
+
     /// 已应用的 `[predict]`。
     pub(super) applied_predict: PredictConfig,
 

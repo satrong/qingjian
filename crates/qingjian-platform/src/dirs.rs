@@ -20,6 +20,11 @@ pub fn config_path() -> Option<PathBuf> {
     user_dir().map(|dir| dir.join("config.toml"))
 }
 
+/// 皮肤目录 `%APPDATA%\Qingjian\themes`；不负责创建（找不到当没皮肤，见 `docs/design/skin.md`）。
+pub fn themes_dir() -> Option<PathBuf> {
+    user_dir().map(|dir| dir.join("themes"))
+}
+
 /// 运行日志目录 `%LOCALAPPDATA%\Qingjian\logs`，不负责创建。
 pub fn log_dir() -> Option<PathBuf> {
     std::env::var_os("LOCALAPPDATA").map(|base| PathBuf::from(base).join("Qingjian").join("logs"))

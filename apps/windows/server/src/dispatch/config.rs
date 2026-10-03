@@ -3,11 +3,13 @@ use qingjian_platform::{
     AppsConfig, CandidateRenderer, Config, KeyCombo, LayoutMode, PreeditMode, Scheme, SwitchKeys,
     ThemeMode,
 };
+use qingjian_render::SkinThemes;
 
 use super::RenderSettings;
+use super::skin;
 
 /// Router 要用的配置项，与 macOS 壳的 `Host` 字段对齐。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct RouterConfig {
     /// 每页候选数（`[general] page_size`）。
     pub page_size: usize,
@@ -30,6 +32,12 @@ pub struct RouterConfig {
 
     /// 候选窗口字体的字族名（`[general] font`），空为系统字体；只对青简渲染器生效。
     pub font: String,
+
+    /// 皮肤名（`[general] skin`），空 = 不用皮肤；热加载按它 stat 皮肤文件。
+    pub skin_name: String,
+
+    /// 解析好的皮肤（深浅两套），从 `skin_name` 解析、失败回退内置；只对青简渲染器生效。
+    pub skin: SkinThemes,
 
     /// 拼音显示位置（`[general] preedit`）。
     pub preedit: PreeditMode,
@@ -98,6 +106,7 @@ impl RouterConfig {
         RenderSettings {
             renderer: self.renderer,
             font: self.font.clone(),
+            skin: self.skin.clone(),
         }
     }
 }
@@ -112,6 +121,9 @@ impl From<&Config> for RouterConfig {
             theme: config.general.theme,
             renderer: config.general.renderer,
             font: config.general.font.trim().to_owned(),
+            // 读盘解析：名字空 / 文件缺失 / 解析失败都回退内置（`skin::resolve` 内部处理并警告）。
+            skin_name: config.general.skin.trim().to_owned(),
+            skin: skin::resolve(&config.general.skin),
             preedit: config.general.preedit,
             page_keys: config.general.page_keys(),
             english_candidates: config.general.english_candidates,

@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use qingjian_platform::{CandidateRenderer, LayoutMode};
 use qingjian_render::{
-    FontLibrary, Frame, Layout, Rendered, RenderedStatus, Renderer, Shadow, StatusCell, Theme,
+    FontLibrary, Frame, Layout, Rendered, RenderedStatus, Renderer, Shadow, SkinThemes, StatusCell,
     UiFont, system_fonts,
 };
 
@@ -21,11 +21,14 @@ pub(super) struct Painter {
 
     /// 建它时用的字族名（空为系统字体），设置没变就不重建。
     font: String,
+
+    /// 当前皮肤的深浅两套；来自 [`RenderSettings`]，改了重建。
+    skin: SkinThemes,
 }
 
 impl Painter {
     /// `font` 是用户选的字族名，空为系统字体；没装就回到系统字体。字体库加载失败返回 `None`，调用方退回 GDI。
-    fn new(font: &str) -> Option<Self> {
+    fn new(font: &str, skin: SkinThemes) -> Option<Self> {
         let started = std::time::Instant::now();
         let library = if font.is_empty() {
             FontLibrary::system("zh-CN")
@@ -51,16 +54,20 @@ impl Painter {
         Some(Self {
             renderer: Renderer::new(library),
             font: font.to_owned(),
+            skin,
         })
     }
 
-    /// 按设置建 / 换 / 撤渲染器。
+    /// 按设置建 / 换 / 撤渲染器；字体或皮肤变了重建（字形缓存随渲染器走，皮肤只改绘制参数）。
     pub(super) fn configure(shared: &SharedPainter, settings: &RenderSettings) {
         let mut painter = shared.borrow_mut();
         match settings.renderer {
             CandidateRenderer::Qingjian => {
-                if painter.as_ref().map(|p| p.font.as_str()) != Some(settings.font.as_str()) {
-                    *painter = Self::new(&settings.font);
+                let changed = painter.as_ref().is_none_or(|painter| {
+                    painter.font != settings.font || painter.skin != settings.skin
+                });
+                if changed {
+                    *painter = Self::new(&settings.font, settings.skin.clone());
                 }
             }
             CandidateRenderer::System => {
@@ -84,10 +91,11 @@ impl Painter {
             LayoutMode::Vertical => Layout::Vertical,
             LayoutMode::Horizontal => Layout::Horizontal,
         };
+        let theme = self.skin.get(dark);
         let started = std::time::Instant::now();
         let rendered = self
             .renderer
-            .render(frame, layout, &theme(dark), scale(dpi), Some(&SHADOW))
+            .render(frame, layout, theme, scale(dpi), Some(&SHADOW))
             .inspect_err(|error| tracing::warn!(%error, "候选窗渲染失败"))
             .ok()?;
         tracing::debug!(
@@ -106,8 +114,9 @@ impl Painter {
         dark: bool,
         dpi: u32,
     ) -> Option<RenderedStatus> {
+        let theme = self.skin.get(dark);
         self.renderer
-            .render_status(cells, &theme(dark), scale(dpi), Some(&SHADOW))
+            .render_status(cells, theme, scale(dpi), Some(&SHADOW))
             .inspect_err(|error| tracing::warn!(%error, "状态条渲染失败"))
             .ok()
     }
@@ -115,10 +124,6 @@ impl Painter {
 
 /// 两个窗口都用渲染器画阴影（分层窗口没有系统阴影），参数与 macOS 面板一致。
 const SHADOW: Shadow = Shadow::mac_panel();
-
-fn theme(dark: bool) -> Theme {
-    if dark { Theme::dark() } else { Theme::light() }
-}
 
 /// 点 → 像素的倍数。
 fn scale(dpi: u32) -> f32 {

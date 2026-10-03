@@ -6,33 +6,11 @@
 use std::path::PathBuf;
 use std::time::SystemTime;
 
-use qingjian_render::{Theme, ThemeFile};
+use qingjian_render::ThemeFile;
+
+pub use qingjian_render::SkinThemes;
 
 use crate::app::paths;
-
-/// 皮肤解析出的深浅两套渲染主题；没皮肤 / 解析失败时就是内置默认。
-#[derive(Debug, Clone, PartialEq)]
-pub struct SkinThemes {
-    /// 浅色：`[skin.light]` 覆盖 [`Theme::light`] 的结果。
-    pub light: Theme,
-    /// 深色：`[skin.dark]` 覆盖 [`Theme::dark`] 的结果。
-    pub dark: Theme,
-}
-
-impl SkinThemes {
-    /// 内置的浅 / 深两套，等价于没配皮肤。
-    pub fn builtin() -> Self {
-        Self {
-            light: Theme::light(),
-            dark: Theme::dark(),
-        }
-    }
-
-    /// 当前外观要用的那套。
-    pub fn get(&self, dark: bool) -> &Theme {
-        if dark { &self.dark } else { &self.light }
-    }
-}
 
 /// 皮肤文件与 `themes/` 目录的修改时间签名（没有的那项为 `None`）。
 /// 热加载每秒只 stat 这两下，签名变了才重新读盘解析。
@@ -100,10 +78,7 @@ pub fn resolve(name: &str) -> SkinThemes {
         return SkinThemes::builtin();
     };
     match ThemeFile::from_toml(&text) {
-        Ok(skin) => SkinThemes {
-            light: skin.resolve(false),
-            dark: skin.resolve(true),
-        },
+        Ok(skin) => skin.themes(),
         Err(error) => {
             tracing::warn!(%error, path = %path.display(), "皮肤文件解析失败，用内置主题");
             SkinThemes::builtin()

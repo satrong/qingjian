@@ -2,15 +2,22 @@
 
 use qingjian_platform::CandidateRenderer;
 use qingjian_platform::protocol::{Frame, ScreenRect};
+use qingjian_render::SkinThemes;
 
 /// 候选窗口 / 状态条的画法。
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// 皮肤带解析好的深浅两套（不是名字）：UI 线程不读盘，
+/// 皮肤文件改了签名变、这里的内容跟着变，靠 `PartialEq` 差异决定要不要下发。
+#[derive(Debug, Clone, PartialEq)]
 pub struct RenderSettings {
     /// 由谁画（`[general] renderer`）。
     pub renderer: CandidateRenderer,
 
     /// 字族名（`[general] font`），空为系统字体。
     pub font: String,
+
+    /// 解析好的皮肤；`SkinThemes::builtin()` 等价于没配皮肤。只对青简渲染器生效。
+    pub skin: SkinThemes,
 }
 
 /// Router 只产出帧，画交给它；Windows 上由 UI 线程实现。
@@ -20,7 +27,7 @@ pub trait CandidateSink: Send {
 
     fn hide(&self);
 
-    /// 换画法：装上时与配置热加载后调，只在设置变了时调。
+    /// 换画法：装上时、配置或皮肤文件热加载后调，只在设置变了时调。
     fn configure(&self, settings: RenderSettings);
 }
 

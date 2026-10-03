@@ -52,6 +52,40 @@ impl ThemeFile {
         }
         theme
     }
+
+    /// 解析成深浅两套完整主题；壳把这套下发给候选窗与状态条。
+    pub fn themes(&self) -> SkinThemes {
+        SkinThemes {
+            light: self.resolve(false),
+            dark: self.resolve(true),
+        }
+    }
+}
+
+/// 皮肤解析出的深浅两套渲染主题；没配皮肤、文件缺失或解析失败时就是内置默认。
+///
+/// 各平台壳负责定位与读文件（`themes/*.toml` 的名字 → 路径 → [`ThemeFile`]），解析结果装在这里跨线程下发。
+#[derive(Debug, Clone, PartialEq)]
+pub struct SkinThemes {
+    /// 浅色：`[skin.light]` 覆盖 [`Theme::light`] 的结果。
+    pub light: Theme,
+    /// 深色：`[skin.dark]` 覆盖 [`Theme::dark`] 的结果。
+    pub dark: Theme,
+}
+
+impl SkinThemes {
+    /// 内置的浅 / 深两套，等价于没配皮肤。
+    pub fn builtin() -> Self {
+        Self {
+            light: Theme::light(),
+            dark: Theme::dark(),
+        }
+    }
+
+    /// 当前外观要用的那套。
+    pub fn get(&self, dark: bool) -> &Theme {
+        if dark { &self.dark } else { &self.light }
+    }
 }
 
 #[cfg(test)]

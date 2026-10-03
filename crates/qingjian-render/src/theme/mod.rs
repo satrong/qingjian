@@ -7,7 +7,7 @@ mod font_spec;
 mod palette;
 mod patch;
 
-pub use file::ThemeFile;
+pub use file::{SkinThemes, ThemeFile};
 pub use font_spec::FontSpec;
 pub use palette::Palette;
 pub use patch::ThemePatch;

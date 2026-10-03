@@ -14,6 +14,7 @@ mod message;
 mod reload;
 mod rescore;
 mod session;
+mod skin;
 mod status;
 mod surrounding;
 mod translate;

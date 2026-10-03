@@ -69,6 +69,9 @@ pub(super) struct StatusBar {
     /// 上次解析出的深浅，变了重建配色。
     dark: Cell<bool>,
 
+    /// 还在显示（收起过为 `false`）：Configure 后按它决定要不要原地重画。
+    visible: Cell<bool>,
+
     /// 摆放状态，与窗口过程共享。
     placement: Rc<Placement>,
 
@@ -120,6 +123,7 @@ impl StatusBar {
             theme: RefCell::new(Rc::new(Theme::new(dpi, dark))),
             dpi: Cell::new(dpi),
             dark: Cell::new(dark),
+            visible: Cell::new(false),
             placement,
             painter,
         })
@@ -136,7 +140,16 @@ impl StatusBar {
     }
 
     pub(super) fn hide(&self) {
+        self.visible.set(false);
         fullscreen::hide(self.hwnd, &self.placement.fullscreen_hidden);
+    }
+
+    /// 画法换了（皮肤 / 字体 / 渲染器）：还在显示就原地重画；收起过就等下次 update。
+    pub(super) fn restyle(&self) {
+        if self.visible.get() {
+            self.sync_theme();
+            self.render();
+        }
     }
 
     /// DPI 或深浅变了就重建主题。DPI 优先取所在位置显示器的，理由同候选窗口（#146）。
@@ -261,6 +274,7 @@ impl StatusBar {
             None => self.render_gdi(),
         };
         if updated.is_ok() {
+            self.visible.set(true);
             fullscreen::show(self.hwnd, &self.placement.fullscreen_hidden);
         } else {
             self.hide();

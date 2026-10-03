@@ -21,7 +21,7 @@ pub(super) const CONFIG_POLL_INTERVAL: Duration = Duration::from_secs(1);
 
 /// 检查更新的结果文件名，在用户数据目录下（见 `qingjian-update::UpdateState`）。
 const UPDATE_STATE_FILE: &str = "update.json";
-use super::{Router, RouterConfig};
+use super::{Router, RouterConfig, skin};
 use crate::assembly;
 
 fn mtime(path: &Path) -> Option<SystemTime> {
@@ -119,6 +119,7 @@ impl Router {
         dirs: DataDirs,
     ) {
         let last_mtime = mtime(&config_path);
+        let skin_stamp = skin::stamp(&config.general.skin);
         let code_files = dirs.code_snapshot();
         let dictionary_files = dirs.dict_snapshot();
         let updates = dirs.user_root.as_deref().map(|dir| {
@@ -131,6 +132,7 @@ impl Router {
             dirs,
             code_files,
             last_mtime,
+            skin_stamp,
             applied_predict: config.predict.clone(),
             applied_dictionaries: config.dictionaries.clone(),
             applied_aux_code: config.aux_code.clone(),
@@ -179,6 +181,21 @@ impl Router {
         if codes_changed {
             self.reload_aux_codes();
         }
+        // 皮肤文件或用户 `themes/` 目录变了（只改皮肤、不碰 config.toml）：重读解析，
+        // 深浅两套真的变了才下发给 UI 线程（签名没变、内容也没变就不动）。
+        // 配置本身也变时由 apply_config 重新解析，这里只补记签名。
+        let skin_changed = {
+            let Some(reload) = self.reload.as_mut() else {
+                return;
+            };
+            let stamp = skin::stamp(&self.config.skin_name);
+            let changed = !config_changed && stamp != reload.skin_stamp;
+            reload.skin_stamp = stamp;
+            changed
+        };
+        if skin_changed {
+            self.refresh_skin();
+        }
         if !config_changed {
             return;
         }
@@ -188,6 +205,17 @@ impl Router {
                 tracing::info!("配置已热加载");
             }
             Err(error) => tracing::error!(%error, "配置热加载解析失败，保持原配置"),
+        }
+    }
+
+    /// 皮肤文件变了：按当前名字重解析，深浅两套真的变了才下发给 UI 线程。
+    /// 解析失败回退内置也是「变了」，同样走 configure。
+    fn refresh_skin(&mut self) {
+        let previous = self.config.render_settings();
+        self.config.skin = skin::resolve(&self.config.skin_name);
+        let settings = self.config.render_settings();
+        if settings != previous {
+            self.candidates.configure(settings);
         }
     }
 

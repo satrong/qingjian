@@ -66,6 +66,9 @@ pub(crate) struct CandidateWindow {
     /// 上次解析出的深浅，变了重建配色。
     dark: Cell<bool>,
 
+    /// 上次显示用的锚点矩形；`None` = 没在显示。Configure 后按它原地重画（改皮肤 / 字体立刻见效）。
+    anchor: Cell<Option<RECT>>,
+
     /// 上次记进日志的缩放值（窗口 DPI、光标所在显示器 DPI）：变了才再记一条（#146）。
     logged_dpi: Cell<Option<(u32, Option<u32>)>>,
 
@@ -108,6 +111,7 @@ impl CandidateWindow {
             data,
             dpi: Cell::new(dpi),
             dark: Cell::new(dark),
+            anchor: Cell::new(None),
             logged_dpi: Cell::new(None),
             painter,
         })
@@ -120,6 +124,7 @@ impl CandidateWindow {
 
     /// 按光标矩形定位并显示：贴光标下方（放不下放上方），四周留出阴影。
     pub(crate) fn show(&self, anchor: RECT) {
+        self.anchor.set(Some(anchor));
         self.sync_theme(anchor);
         let rendered = {
             let data = self.data.borrow();
@@ -185,7 +190,15 @@ impl CandidateWindow {
     }
 
     pub(crate) fn hide(&self) {
+        self.anchor.set(None);
         let _ = unsafe { ShowWindow(self.hwnd, SW_HIDE) };
+    }
+
+    /// 画法换了（皮肤 / 字体 / 渲染器）：正在显示就按上次的锚点原地重画；没显示就等下次 show。
+    pub(crate) fn restyle(&self) {
+        if let Some(anchor) = self.anchor.get() {
+            self.show(anchor);
+        }
     }
 
     /// DPI 或深浅变了就重建主题；每次 `show` 前调。

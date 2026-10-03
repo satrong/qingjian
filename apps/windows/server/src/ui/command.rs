@@ -18,6 +18,6 @@ pub(super) enum UiCommand {
     /// 收起悬浮状态条。
     StatusHide,
 
-    /// 换画法（渲染器 / 字体）。
+    /// 换画法（渲染器 / 字体 / 皮肤）。
     Configure(RenderSettings),
 }
