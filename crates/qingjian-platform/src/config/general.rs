@@ -52,6 +52,13 @@ pub struct GeneralConfig {
     /// 英文模式（Caps Lock 亮着）是否给英文候选（补全与拼错纠正）。关掉就是纯直通。
     pub english_candidates: bool,
 
+    /// 中文模式下是否混输英文词与补全（整段是英文词 `hello` 给英文候选，拼音不成立时补全前缀 `compa` → company）。
+    /// 关掉后中文模式只出中文与整句；英文模式的候选不受它管，见 [`Self::english_candidates`]。
+    pub chinese_english_candidates: bool,
+
+    /// 候选里是否出现表情（emoji），中文模式与英文模式一起管。
+    pub emoji_candidates: bool,
+
     /// 繁体输出模式。
     pub traditional: bool,
     /// 中文模式下中英混输时中文候选总排在英文词前面。缺省关：拼音不像话的输入（`hello`）英文词排第一，
@@ -129,6 +136,8 @@ impl Default for GeneralConfig {
             font: String::new(),
             preedit: PreeditMode::default(),
             english_candidates: true,
+            chinese_english_candidates: true,
+            emoji_candidates: true,
             traditional: false,
             chinese_first: false,
             shift_letter: ShiftLetter::default(),
@@ -276,6 +285,23 @@ mod tests {
         assert!(!general.horizontal_grid);
         let general: GeneralConfig = toml::from_str("horizontal_grid = true\n").unwrap();
         assert!(general.horizontal_grid);
+    }
+
+    /// 中英混输的英文词与表情候选缺省都出，配置里写 false 才关。
+    #[test]
+    fn chinese_english_and_emoji_candidates_default_on() {
+        let general = GeneralConfig::default();
+        assert!(general.chinese_english_candidates);
+        assert!(general.emoji_candidates);
+        let parsed: GeneralConfig =
+            toml::from_str("chinese_english_candidates = false\nemoji_candidates = false\n")
+                .unwrap();
+        assert!(!parsed.chinese_english_candidates);
+        assert!(!parsed.emoji_candidates);
+        // 两项互不影响
+        let parsed: GeneralConfig = toml::from_str("chinese_english_candidates = false\n").unwrap();
+        assert!(!parsed.chinese_english_candidates);
+        assert!(parsed.emoji_candidates);
     }
 
     #[test]

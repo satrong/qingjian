@@ -68,6 +68,10 @@ impl Component for Settings {
             Message::Wubi(on) => self.save("general", "wubi", if on { "wubi86" } else { "" }),
             Message::Traditional(on) => self.save("general", "traditional", on),
             Message::EnglishCandidates(on) => self.save("general", "english_candidates", on),
+            Message::ChineseEnglishCandidates(on) => {
+                self.save("general", "chinese_english_candidates", on);
+            }
+            Message::EmojiCandidates(on) => self.save("general", "emoji_candidates", on),
             Message::ChineseFirst(on) => self.save("general", "chinese_first", on),
             Message::FullWidthPunctuation(on) => {
                 self.save("general", "full_width_punctuation", on);

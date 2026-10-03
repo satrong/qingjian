@@ -633,3 +633,49 @@ fn a_long_raw_commit_with_english_in_the_middle_is_not_learned() {
         "只有真正像一个词的才该进个人英文词表"
     );
 }
+
+/// `[general] chinese_english_candidates` 关掉：中文模式不出英文词与补全，英文模式照旧。
+#[test]
+fn chinese_english_candidates_can_be_turned_off_without_touching_english_mode() {
+    let words =
+        WordList::parse("hello\thello\t4720\ncompany\tcompany\t5600\ncompare\tcompare\t4450\n")
+            .unwrap();
+    let mut engine = engine().with_english(words);
+    engine.set_chinese_english_candidates(false);
+
+    // 整段是英文词：只有中文候选
+    engine.set_input("hello");
+    let all = texts_of(&engine);
+    assert!(!all.contains(&"hello".to_owned()), "{all:?}");
+    // 拼音不像话时的前缀补全也没了
+    engine.set_input("compa");
+    let query = engine.query().unwrap();
+    assert!(
+        query
+            .candidates
+            .items
+            .iter()
+            .all(|c| c.kind != CandidateKind::English)
+    );
+    // 第一个字母就切不动、本来只靠英文候选撑着的输入，现在与没装词表一样
+    engine.set_input("impo");
+    assert!(engine.query().is_err());
+
+    // 英文模式不受这个开关管
+    engine.set_english_mode(true);
+    engine.set_input("hello");
+    let query = engine.query().unwrap();
+    assert!(
+        query
+            .candidates
+            .items
+            .iter()
+            .any(|c| c.kind == CandidateKind::English && c.text == "hello")
+    );
+
+    // 打开后中文模式的英文词回来
+    engine.set_english_mode(false);
+    engine.set_chinese_english_candidates(true);
+    engine.set_input("hello");
+    assert!(texts_of(&engine).contains(&"hello".to_owned()));
+}

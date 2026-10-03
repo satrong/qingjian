@@ -40,6 +40,12 @@ pub struct GeneralPage {
     /// 中英混输时中文候选排在英文词前。
     chinese_first: Retained<NSButton>,
 
+    /// 中文模式下混输英文词与补全。
+    chinese_english: Retained<NSButton>,
+
+    /// 候选里出不出表情。
+    emoji: Retained<NSButton>,
+
     /// 中文模式下 Shift+字母进组句。
     shift_letter: Retained<NSButton>,
 
@@ -158,6 +164,25 @@ impl GeneralPage {
             mtm,
             "终端、iTerm、Warp、Ghostty、VS Code、Cursor、Zed、JetBrains、Xcode 等，那里的候选窗口会挡住应用自己的补全；名单可在配置文件里改。",
         );
+        let chinese_english = checkbox(
+            mtm,
+            "输入拼音时给出英文词候选",
+            Setting::ChineseEnglishCandidates,
+            target,
+        );
+        row_checkbox(layout, &chinese_english);
+        note(
+            layout,
+            mtm,
+            "整段是英文词时（hello、key）给英文候选，拼音不成立时还补全前缀（compa → company）。缺省勾选；取消后中文模式只出中文与整句，英文模式（Caps Lock）的候选不受影响。",
+        );
+        let emoji = checkbox(mtm, "候选中显示表情", Setting::EmojiCandidates, target);
+        row_checkbox(layout, &emoji);
+        note(
+            layout,
+            mtm,
+            "前几个候选里有对应表情的词后面跟着表情（ku → 哭 😢 😭），右侧标注对应的词。缺省勾选；取消后中文模式与英文模式都不出表情。",
+        );
         let chinese_first = checkbox(
             mtm,
             "输入拼音时中文候选排在英文词前面",
@@ -191,6 +216,8 @@ impl GeneralPage {
             traditional,
             english,
             english_off_in_apps,
+            chinese_english,
+            emoji,
             chinese_first,
             shift_letter,
             languages: languages.to_vec(),
@@ -237,6 +264,8 @@ impl GeneralPage {
         self.english_off_in_apps
             .setEnabled(general.english_candidates);
         set_checked(&self.chinese_first, general.chinese_first);
+        set_checked(&self.chinese_english, general.chinese_english_candidates);
+        set_checked(&self.emoji, general.emoji_candidates);
         set_checked(&self.shift_letter, general.shift_letter.compose());
     }
 }

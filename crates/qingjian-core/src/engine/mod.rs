@@ -121,6 +121,10 @@ pub struct Engine {
     /// 中英混输时中文候选总在英文词前面（缺省关：拼音不像话的输入英文词排第一，常在中文模式里打英文词的人靠它）。
     chinese_first: bool,
 
+    /// 中文模式下混不混输英文词与补全（配置 `[general] chinese_english_candidates`，缺省开）。
+    /// 关着时 `insert_english` 一条都不出；英文模式（Caps Lock）的候选不受它管。
+    chinese_english_candidates: bool,
+
     /// 中文模式下 Shift+字母进组句缓冲区（配置 `[general] shift_letter = "compose"`，缺省关）。
     /// 关着由壳直接把大写字母交给应用，Core 这一路就不该收——否则 `Cpan` 这种会被当成拼音。
     shift_letter_compose: bool,
@@ -257,6 +261,10 @@ pub struct Engine {
 
     /// emoji 表，没有就不出 emoji 候选。
     emoji: Option<EmojiTable>,
+
+    /// 候选里出不出 emoji（配置 `[general] emoji_candidates`，缺省开）：关着时 `insert_emoji` 直接返回，
+    /// 中文模式与英文模式都不出。
+    emoji_candidates: bool,
 
     /// 辅码态：`None` 是拼音态，`Some` 是辅码态（空串 = 刚敲下触发键、码段还没开始）。
     /// 码段不进 `composition`：它与拼音分段记账、分段画（见 [`AuxSegment`]）。
@@ -397,6 +405,7 @@ impl Engine {
             full_width_punctuation: true,
             custom_phrases: Vec::new(),
             chinese_first: false,
+            chinese_english_candidates: true,
             shift_letter_compose: false,
             predictor: Box::new(NoPredictor),
             language_model: Box::new(NoLanguageModel),
@@ -441,6 +450,7 @@ impl Engine {
             code: None,
             phonetic: true,
             emoji: None,
+            emoji_candidates: true,
             aux_code: None,
             aux_enabled: false,
             aux_show: false,

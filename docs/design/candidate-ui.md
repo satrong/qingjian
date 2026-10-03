@@ -118,7 +118,8 @@ collection behavior 是 CanJoinAllSpaces + FullScreenAuxiliary + Stationary。�
 打分是静态 bigram（`qingjian-lm`）与个人 n-gram（二元 + 三元，看前两个词）插值。简拼位置照转（`jttqhh` → 今天天气很好，`wjdzjsg` → 我觉得自己是个），
 每个简拼格子按前缀多留一些词、由语言模型挑读音；两字母简拼多半还是词（`sj` 时间），单词路径得分高就不出句子。
 全拼句子末尾未打完的音节至少两个字母才算进句子（`woxiangs` 多半是没打完的 shuo），前面已有简拼的句子末尾单字母就是一个音节（`wxq`）。
-有音节连单字都查不到（只能拿拼音占位）的不出句子；英文词的位置看 `Engine::chinese_first`（配置 `[general] chinese_first`，缺省关）：
+有音节连单字都查不到（只能拿拼音占位）的不出句子；整段英文词与英文补全出不出由 `[general] chinese_english_candidates`（缺省开）决定，
+关掉后 `insert_english` 一条都不出（英文模式与句末英文尾段不归它管），开着时英文词的位置看 `Engine::chinese_first`（配置 `[general] chinese_first`，缺省关）：
 关着时整段是英文词或不像拼音带出的英文补全排在句子前面（`hello` 先英文再 荷兰咯）；开着时整句先插、英文词紧随其后排第二（`hello` 先 荷兰咯 再 hello）。
 缺省关是回放定的：9241 词 / 269 条英文上屏的冻结日志上，缺省开英文首选 82.5% → 7.1%，常在中文模式里打英文词的人被明显伤到；关着与改前完全一致。
 上屏按音节消耗拼音，路径上的词逐条记进个人 n-gram（`user-ngram.tsv`），不记词频。
@@ -171,8 +172,10 @@ Alacritty / kitty / VS Code / Cursor / Zed / JetBrains 全家 / MacVim / Sublime
 - **英文补全**：整段输入切成的拼音「不像话」（切不动、或非末尾有简拼 / 残缺音节：`compa` → `co'm'pa`、`impor` 连第一个字母都切不动）
   且至少 3 个字母时，除了整段正好是的英文词，还出词表里该前缀下最常用的 3 个（`compa` → company / companies / compared），
   紧跟在精确词之后、排在拼音候选前。干净的拼音（`xian`、`shan`）不补全，免得每个音节都冒英文。词频来自 wordfreq（`tools/corpus/english_frequency.py`）。
+  整段英文词与补全一起由 `[general] chinese_english_candidates`（缺省开）管：关掉后 `insert_english` 直接返回，中文模式只剩中文与整句候选。
 - **emoji**：前 5 个中文 / 英文候选里有配 emoji 的，emoji 紧跟在那个词后面（`ku` → 哭 😢 😭，`smile` → smile 🙂 😊），右侧标注对应的词；
   每个词最多 2 个、一次最多 3 个，`CandidateKind::Emoji`，上屏按那个词的音节消耗拼音（英文词带出的对应整段输入）、不记学习。
+  出不出由 `[general] emoji_candidates`（缺省开）管，关掉后 `insert_emoji` 直接返回，中文与英文两个模式一起关。
   数据是 Unicode CLDR 中文与英文 annotations（`assets/emoji/emoji-zh.tsv`、`emoji-en.tsv`，Unicode License v3，可发布，加载时合成一张表），
   `dict-convert emoji --language zh|en` 生成：单字词只收名字里含这个字的 emoji，名字里含这个词的靠前、名字越短越靠前。
   日文表要等有日语输入模式再说。

@@ -207,6 +207,10 @@ impl Router {
         self.engine.set_aux_show(config.general.aux_code_show);
         self.engine.set_chinese_first(config.general.chinese_first);
         self.engine
+            .set_chinese_english_candidates(config.general.chinese_english_candidates);
+        self.engine
+            .set_emoji_candidates(config.general.emoji_candidates);
+        self.engine
             .set_shift_letter_compose(config.general.shift_letter.compose());
         self.engine
             .set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);

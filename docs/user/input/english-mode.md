@@ -72,6 +72,8 @@ description: 进入英文模式的方式、英文补全与拼写纠正、Space �
 ## 关闭
 
 - 全局：「偏好设置 → 通用」（Windows：「设置 → 通用」）取消「英文模式给候选」。关闭后为纯直通，与未使用输入法时一致。
+- 中文模式里的英文词：同一页面取消「输入拼音时给出英文词候选」，中文模式不再混入英文词与补全（英文模式的候选不受影响）。
+- 候选中的表情：同一页面取消「候选中显示表情」，中文模式与英文模式都不再出现表情。
 - 按应用：终端与代码编辑器中缺省不给候选，以免遮挡应用自身的补全或占用 `Tab` 键。
   macOS 的名单包括 Terminal、iTerm、Warp、Ghostty、VS Code、Cursor、Zed、JetBrains 系列、Xcode 等；
   Windows 的名单包括命令提示符、PowerShell、Windows Terminal、VS Code、Cursor、JetBrains 系列、Visual Studio 等。

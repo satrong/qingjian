@@ -217,6 +217,11 @@ font = ""
 preedit = "both"
 # 英文模式（Caps Lock 亮着）是否给英文候选：Tab 或方向键选词，空格、回车、标点仍原样上屏敲的字母；false 就是纯直通
 english_candidates = true
+# 中文模式下是否混输英文词与补全：整段是英文词时给英文候选（hello / key），拼音不成立时还补全前缀（compa → company）；
+# false 后中文模式只出中文与整句。英文模式（Caps Lock）的候选不受它影响
+chinese_english_candidates = true
+# 候选里是否出现表情（emoji）：中文模式与英文模式一起关，false 后一条都不出
+emoji_candidates = true
 
 # 繁体输出模式。开启后上屏繁体，不影响词库和个人词频的简体记录。
 traditional = false

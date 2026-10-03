@@ -123,6 +123,12 @@ pub enum Setting {
     /// `[general] english_candidates`，勾选框。
     EnglishCandidates,
 
+    /// `[general] chinese_english_candidates`，勾选框：中文模式下混输英文词与补全。
+    ChineseEnglishCandidates,
+
+    /// `[general] emoji_candidates`，勾选框：候选里出不出表情。
+    EmojiCandidates,
+
     /// `[general] chinese_first`，勾选框：中英混输时中文候选排在英文词前。
     ChineseFirst,
 
@@ -225,6 +231,8 @@ impl Setting {
             Self::Layout => 12,
             Self::Preedit => 13,
             Self::EnglishCandidates => 14,
+            Self::ChineseEnglishCandidates => 59,
+            Self::EmojiCandidates => 60,
             Self::ChineseFirst => 42,
             Self::ShiftLetter => 50,
             Self::HorizontalGrid => 51,
@@ -293,6 +301,8 @@ impl Setting {
             12 => Self::Layout,
             13 => Self::Preedit,
             14 => Self::EnglishCandidates,
+            59 => Self::ChineseEnglishCandidates,
+            60 => Self::EmojiCandidates,
             42 => Self::ChineseFirst,
             50 => Self::ShiftLetter,
             51 => Self::HorizontalGrid,
@@ -378,6 +388,8 @@ mod tests {
             Setting::Layout,
             Setting::Preedit,
             Setting::EnglishCandidates,
+            Setting::ChineseEnglishCandidates,
+            Setting::EmojiCandidates,
             Setting::TranslationKeys,
             Setting::TranslationSecondKeys,
             Setting::TranslateSelectionKeys,

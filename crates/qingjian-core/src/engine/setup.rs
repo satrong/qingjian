@@ -412,6 +412,25 @@ impl Engine {
         self.chinese_first
     }
 
+    /// 中文模式下混不混输英文词与补全（配置 `[general] chinese_english_candidates`，缺省开）。
+    /// 关着时整段英文词、前缀补全都不出；英文模式（Caps Lock）照旧给候选。
+    pub fn set_chinese_english_candidates(&mut self, on: bool) {
+        self.chinese_english_candidates = on;
+    }
+
+    pub fn chinese_english_candidates(&self) -> bool {
+        self.chinese_english_candidates
+    }
+
+    /// 候选里出不出 emoji（配置 `[general] emoji_candidates`，缺省开）：中英两个模式一起管。
+    pub fn set_emoji_candidates(&mut self, on: bool) {
+        self.emoji_candidates = on;
+    }
+
+    pub fn emoji_candidates(&self) -> bool {
+        self.emoji_candidates
+    }
+
     /// 中文模式下 Shift+字母是否进组句缓冲区（配置 `[general] shift_letter`，缺省关）。
     /// 开着时大写按小写参与匹配、原样上屏时还原，`Cpan` 与 `cpan` 一样出「C盘」；
     /// 关着时壳直接把大写字母交给应用，进这里的字母就按它自己的样子匹配。

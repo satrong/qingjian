@@ -54,13 +54,16 @@ impl Engine {
         items.splice(position..position, shortcuts);
     }
 
-    /// 中英混输：整段输入是英文词就把它加进候选。
+    /// 中英混输：整段输入是英文词就把它加进候选。配置 `[general] chinese_english_candidates` 关着时整段不出。
     /// 缺省作为拼音「不像话」（切不动、或除末尾外还有声母缩写 / 残缺音节）时排第一，否则排第二；
     /// 开了中文优先（`chinese_first`）整句 / 首个中文候选已经在前，英文词排第二。没有中文候选时总在第一。
     /// 两字母的全大写缩写（`mp` → MP、`bm` → BM）是个例外：整段太短、几乎总是在打中文（门票 / 编码），
     /// 这种让中文先；超过两个字母的正文英文（cargo / rust）照旧——按词频一刀切会把它们一起挤掉。
     /// 例外只管**没选过**的英文词：用户选过的照旧排第一（选过 OK，下次敲 `ok` 还是 OK 在前）。
     pub(super) fn insert_english(&self, items: &mut Vec<Candidate>, unlikely_pinyin: bool) {
+        if !self.chinese_english_candidates {
+            return;
+        }
         let lists = self.english_lists();
         if lists.is_empty() {
             return;
@@ -146,8 +149,12 @@ impl Engine {
     }
 
     /// emoji 候选：前几个中文候选里有配 emoji 的，emoji 紧跟在那个词后面，右侧标注它对应的词。
+    /// 配置 `[general] emoji_candidates` 关着时一条都不出。
     /// 词后面紧挨着的英文词候选（中文优先时 `key` → 可以、key）不被 emoji 挤开，emoji 排在它之后。
     pub(super) fn insert_emoji(&self, items: &mut Vec<Candidate>) {
+        if !self.emoji_candidates {
+            return;
+        }
         let Some(table) = &self.emoji else { return };
         let mut inserted = 0;
         let mut index = 0;

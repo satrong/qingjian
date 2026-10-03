@@ -45,3 +45,51 @@ fn emoji_follow_their_word_and_consume_its_syllables() {
     assert_eq!(engine.commit(&emoji), "👨‍💻");
     assert_eq!(engine.composition().text(), "zhe");
 }
+
+/// `[general] emoji_candidates` 关着时中英两个模式都不出 emoji；打开立刻回来。
+#[test]
+fn emoji_candidates_can_be_turned_off() {
+    let table = EmojiTable::parse("smile\t😀\n开发\t👨‍💻\n").unwrap();
+    let words = WordList::parse("smile\tsmile\t5120\n").unwrap();
+    let mut engine = engine().with_english(words).with_emoji(table);
+    engine.set_emoji_candidates(false);
+
+    engine.set_input("kaifa");
+    let query = engine.query().unwrap();
+    assert!(query.candidates.items.iter().any(|c| c.text == "开发"));
+    assert!(
+        query
+            .candidates
+            .items
+            .iter()
+            .all(|c| c.kind != CandidateKind::Emoji)
+    );
+
+    engine.set_english_mode(true);
+    engine.set_input("smile");
+    let query = engine.query().unwrap();
+    assert!(
+        query
+            .candidates
+            .items
+            .iter()
+            .any(|c| c.kind == CandidateKind::English)
+    );
+    assert!(
+        query
+            .candidates
+            .items
+            .iter()
+            .all(|c| c.kind != CandidateKind::Emoji)
+    );
+
+    engine.set_emoji_candidates(true);
+    let query = engine.query().unwrap();
+    assert!(
+        query
+            .candidates
+            .items
+            .iter()
+            .any(|c| c.kind == CandidateKind::Emoji)
+    );
+}

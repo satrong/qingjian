@@ -135,6 +135,22 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .on_toggled(context.callback(Message::EnglishOffInApps)),
         ),
         field(
+            "输入拼音时给出英文词候选",
+            "整段是英文词时（hello、key）给英文候选，拼音不成立时还补全前缀（compa → company）。\
+             缺省开启，关掉后中文模式只出中文与整句；英文模式（Caps Lock）的候选不受影响。",
+            ToggleSwitch::new()
+                .is_on(g.chinese_english_candidates)
+                .on_toggled(context.callback(Message::ChineseEnglishCandidates)),
+        ),
+        field(
+            "候选中显示表情",
+            "前几个候选里有对应表情的词后面跟着表情（ku → 哭），右侧标注对应的词。\
+             缺省开启，关掉后中文模式与英文模式都不出表情。",
+            ToggleSwitch::new()
+                .is_on(g.emoji_candidates)
+                .on_toggled(context.callback(Message::EmojiCandidates)),
+        ),
+        field(
             "输入拼音时中文候选排在英文词前面",
             "开着时整段输入是英文词时（hello、key）英文词排第二，空格上屏的仍是中文；关着（缺省）拼音不成立的输入英文词排第一。",
             ToggleSwitch::new()
