@@ -11,3 +11,9 @@ tools/release/data-fetch.sh
 ```bash
 powershell -ExecutionPolicy Bypass -File apps\windows\installer\build.ps1
 ```
+
+## MacOS 安装包构建
+
+```bash
+apps/macos/scripts/bundle.sh --pkg
+```
