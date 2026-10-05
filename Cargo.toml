@@ -93,7 +93,8 @@ objc2-core-foundation = { version = "0.3.2", features = ["CFArray", "CFBase", "C
 embed-manifest = "1.4.0"
 windows-registry = "0.6.1"
 
-# cosmic-text 加了 opsz 光学字号支持（FontSystem::set_optical_size），补丁在 qingjian-team 的 fork，分支 qingjian-opsz 基于 0.19.0；
+# cosmic-text 加了 opsz 光学字号支持（FontSystem::set_optical_size）与按字号分键（fbccc840），补丁在 fork 的 qingjian-opsz 分支，基于 0.19.0；
 # 上游收了就删掉这段回 crates.io。见 docs/design/rendering.md
+# 暂钉 satrong 的 fork——对 qingjian-team 无写权限；合回团队 fork 后把 URL 换回 qingjian-team/cosmic-text。
 [patch.crates-io]
-cosmic-text = { git = "https://github.com/qingjian-team/cosmic-text", rev = "9cf0d65a5e4db381e34907103326673386096be3" }
+cosmic-text = { git = "https://github.com/satrong/cosmic-text", rev = "fbccc8401c9cd23fdb48d131fca1317c295b1d90" }
