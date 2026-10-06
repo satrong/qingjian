@@ -206,8 +206,12 @@ if [[ "${1:-}" == "--pkg" ]]; then
 fi
 
 if [[ "${1:-}" == "--install" ]]; then
+  # 两份同 bundle id 的 .app 会被 TIS 各注册一次，输入法列表里就长出重复条目（2026-10-06 踩过）。
+  # 系统级那份要密码才删得动，所以在这里挡住，别装出个第二份。
   if [[ -d "/Library/Input Methods/$APP_NAME.app" ]]; then
-    echo "注意: /Library/Input Methods/$APP_NAME.app 也装着一份（pkg 装的），两份同 id 会互相顶；先跑 scripts/uninstall.sh"
+    echo "错误: /Library/Input Methods/$APP_NAME.app 已存在（pkg 装的），与本脚本装的同 bundle id 会互相顶。" >&2
+    echo "先卸载它: sudo '/Library/Input Methods/$APP_NAME.app/Contents/Resources/uninstall.sh'" >&2
+    exit 1
   fi
   mkdir -p "$INSTALL_DIR"
   rm -rf "$INSTALL_DIR/$APP_NAME.app"
