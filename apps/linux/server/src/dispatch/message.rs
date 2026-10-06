@@ -47,6 +47,8 @@ impl Router {
                 Some(ServerMessage::Update {
                     session,
                     frame: self.current_frame(),
+                    // 手机推送只在 macOS / Windows 接入，Linux 这边不带
+                    remote: None,
                 })
             }
             ClientMessage::Commit { session } if self.sessions.contains_key(&session) => {

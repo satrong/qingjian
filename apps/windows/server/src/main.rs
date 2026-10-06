@@ -286,6 +286,8 @@ fn serve(mut router: Router) {
         }
         Err(error) => tracing::error!(%error, "UI 线程启动失败，将不显示候选框 / 状态条"),
     }
+    // 手机推送的泵线程靠这个通道把文本投给 Router（Router 只在工人线程上跑）
+    router.set_work_sender(work_tx.clone());
     if let Err(error) = pipe::serve_pipe(pipe::DEFAULT_PIPE_NAME, &mut router, work_tx, work_rx) {
         tracing::error!(%error, "命名管道服务退出");
         std::process::exit(1);

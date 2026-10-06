@@ -76,6 +76,44 @@ impl TextService_Impl {
         }
     }
 
+    /// 手机推送来的一段文本：插进当前输入框（`insertText:` 那一路，不经组句）。
+    ///
+    /// 落点与失焦上屏一样是「最近拿到的上下文 + 一次异步编辑会话」；Server 侧已经把组句清了，
+    /// 所以这里只有上屏文本、没有拼音行。插入期间这个进程是前台才收得到（`Poll` / `SyncMode`
+    /// 都是前台节拍），所以不用再问一次焦点。
+    pub(super) fn insert_remote_text(&self, text: String) {
+        log(&format!("手机推送上屏: {text}"));
+        let Some(context) = self.edit_context() else {
+            log("手机推送没有可插入的上下文，丢弃");
+            return;
+        };
+        if let Err(error) = request_update(
+            &context,
+            self.client_id.get(),
+            self.engine.clone(),
+            self.shared.clone(),
+            Some(text),
+            String::new(),
+        ) {
+            log(&format!("手机推送的编辑会话没被受理: {error}"));
+        }
+    }
+
+    /// 该往哪儿插：优先最近拿到的编辑上下文（按键路径给的，最准）；
+    /// 没有就问线程管理器要当前焦点所在文档的顶层上下文——用户刚点进输入框、还没敲过键时只有这个
+    /// （`Activate` 只给线程管理器，不给上下文，所以那时 `last_context` 还是空的）。
+    ///
+    /// 顶层上下文是文档的主编辑视图：光标在文档里别的编辑框（对话框里的输入框之类）时可能插错地方，
+    /// 那种情况等用户敲一下键，`last_context` 就换成准的了。
+    fn edit_context(&self) -> Option<ITfContext> {
+        if let Some(context) = self.shared.last_context() {
+            return Some(context);
+        }
+        let thread_mgr = self.thread_mgr.borrow().clone()?;
+        // SAFETY: 两个都是纯查询：取焦点所在文档，再取它的顶层上下文
+        unsafe { thread_mgr.GetFocus().ok()?.GetTop().ok() }
+    }
+
     /// 经异步编辑会话把上屏文本 + 组句拼音行写进文档。
     pub(super) fn update_document(
         &self,

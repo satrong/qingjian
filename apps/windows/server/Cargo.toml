@@ -22,6 +22,7 @@ qingjian-lm.workspace = true
 qingjian-neural.workspace = true
 qingjian-platform.workspace = true
 qingjian-predict.workspace = true
+qingjian-remote-web.workspace = true
 qingjian-render.workspace = true
 qingjian-translate.workspace = true
 qingjian-update.workspace = true

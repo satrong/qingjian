@@ -102,6 +102,10 @@ pub enum ServerMessage {
 
         /// 要重绘的状态。
         frame: Frame,
+
+        /// 手机推送来、要插进这个会话的文本（见 [`ServerMessage::take_remote`]）。老 DLL 读不到这个字段。
+        #[serde(default)]
+        remote: Option<String>,
     },
 
     /// 对一次 [`super::ClientMessage::SyncMode`] 的答复：当前的全局中英模式，
@@ -120,6 +124,10 @@ pub enum ServerMessage {
         /// 右键菜单打勾用的开关状态（v7 起）。
         #[serde(default)]
         indicator: IndicatorState,
+
+        /// 手机推送来、要插进这个会话的文本（见 [`ServerMessage::take_remote`]）。老 DLL 读不到这个字段。
+        #[serde(default)]
+        remote: Option<String>,
     },
 
     /// 收到「翻译选中文字」快捷键：请 DLL 在读编辑会话里取当前选区，用
@@ -132,4 +140,19 @@ pub enum ServerMessage {
         /// 请求标识，回时带上。
         request: u64,
     },
+}
+
+impl ServerMessage {
+    /// 取走这一条里捎带的手机推送文本（取走即清掉，一个会话只插一次）。
+    ///
+    /// 命名管道是一问一答：Server 不能主动给 DLL 推帧（非应答帧会被对端当成上一次请求的应答而错位），
+    /// 所以待插入的文本搭 [`Self::Update`] 与 [`Self::ModeSync`] 两种既有应答的便车——
+    /// 组句期间 DLL 收前者，空闲时收后者（见 `apps/windows/server/src/dispatch/remote.rs`）。
+    pub fn take_remote(&mut self) -> Option<String> {
+        let slot = match self {
+            Self::Update { remote, .. } | Self::ModeSync { remote, .. } => remote,
+            _ => return None,
+        };
+        slot.take()
+    }
 }

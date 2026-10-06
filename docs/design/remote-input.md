@@ -82,7 +82,13 @@ CRLF 收成一个换行，零宽连接符保留（emoji 序列要用）。清洗
 ## 各平台的接入点
 
 - **Linux**：`LinuxEvent` 加一个变体，Server 分派后直接 `commitString`，绕过 Engine。Server 常驻，最省事。
-- **Windows**：Server 侧挑「最近活跃且非密码框」的 session，DLL 收到后开一次编辑会话，复用 `composition::apply` 把文本当 `commit` 喂进去。
+- **Windows（已接）**：命名管道是一问一答，Server **不能主动推帧**（非应答帧会被对端当成上一次请求的应答而错位），
+  所以待插入的文本搭既有应答的便车：`Update`（`Poll` 的应答，组句期间每 80 ms）与 `ModeSync`（`SyncMode` 的应答，
+  空闲时 320 ms 一次），字段是 `#[serde(default)] Option<String>`，**不用升协议版本**（老 DLL 忽略没见过的字段；
+  只有「加枚举变体」才必须升，见 `protocol/mod.rs`）。Server 挑目标会话（最近收过键的，没有就最近开会话的；
+  私密输入框不做目标），先把它的组句清掉；DLL 收到后走 `insert_remote_text`，插进「最近拿到的编辑上下文」——
+  没有就问线程管理器要焦点文档的顶层上下文（用户刚点进输入框还没敲键时 `last_context` 是空的）。
+  设置程序里有「手机输入」页：开关 + 地址 + 令牌，**不画二维码**（系统没有生成二维码的 API，另找库不值当）。
 - **macOS**（唯一需要设计的地方）：进来的时候**可能根本没有 client**——输入源已启用但没人在打字时，
   `insertText:` 没有收件人。所以 `Host` 上挂一个待插入队列，主线程在 `activate_server:`（那里能拿到 client）先 flush 再起 session；
   存着的文本有超时（30 秒）以免很久以后插到不相干的位置。上屏走 IMK 的 `insertText:` 而不是 CGEvent 合成按键，
@@ -98,4 +104,7 @@ CRLF 收成一个换行，零宽连接符保留（emoji 序列要用）。清洗
 - `crates/qingjian-remote-web`：HTTP、令牌、清洗、限流、单测与端到端测试都已就绪。
 - **macOS 已接入**（`apps/macos/src/remote/` + `apps/macos/src/host/remote.rs`）：菜单开关、二维码面板、待插入队列、
   安全输入与登录窗口守卫。真机验证走过：面板二维码能被解码、HTTP 提交 200、文本在 200 ms 内插进 TextEdit 的光标处。
-- Linux / Windows 未接入（见上面各平台的接入点）。
+- **Windows 已接入**（`apps/windows/server/src/dispatch/remote.rs` + `apps/windows/tsf/src/com/service/document.rs`
+  + 设置程序「手机输入」页）：服务按 `[remote]` 起停（走既有的配置热加载）、真 HTTP 提交、目标会话挑法、
+  两条捎带路径都有测试（`tests/engine_loop/remote.rs`，起真服务打真 HTTP）。**DLL 插入那半边要在 Windows 机器上验**。
+- Linux 未接入（`LinuxEvent` 加一个变体即可，见上面）。

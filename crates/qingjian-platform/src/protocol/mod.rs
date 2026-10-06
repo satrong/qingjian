@@ -25,6 +25,10 @@ mod tests;
 /// **加枚举变体不在「仍能对话」之列**：`qingjian_core::Candidate` 是线上格式的一部分（见本模块文档），
 /// 给它加一个 `kind` 变体，老 DLL 解不出来会整条帧失败、按键直接放行——测试时看到的「输入法突然只出英文」
 /// 就是这么来的（`unknown variant `Code``）。加变体必须同时 +1 并重装 DLL，否则连警告都不会有。
+///
+/// **加带 `#[serde(default)]` 的可选字段不用升版本**：老的一侧会忽略自己没见过的字段，两边仍能对话
+/// （[`ServerMessage::ModeSync`] 的 `input` / `indicator` 就是这么加的）。只有「加变体」和
+/// 「改已有字段的含义」才必须升。
 pub const PROTOCOL_VERSION: u32 = 7;
 
 /// 从哪个协议版本起 DLL 会在 `OpenSession` 后阻塞读一条 [`ServerMessage::SessionOpened`]。

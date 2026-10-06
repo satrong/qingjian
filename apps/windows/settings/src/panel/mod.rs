@@ -19,7 +19,8 @@ use self::cloud_status::CloudStatus;
 pub(crate) use self::message::Message;
 use self::notice::Notice;
 use self::pages::{
-    about, advanced, aux_code, candidates, cloud, dictionaries, fuzzy, general, shortcut, usage,
+    about, advanced, aux_code, candidates, cloud, dictionaries, fuzzy, general, remote, shortcut,
+    usage,
 };
 use self::recorder::Recorder;
 
@@ -136,6 +137,7 @@ impl Settings {
             "aux_code" => aux_code::view(self, context),
             "usage" => usage::view(self, context),
             "advanced" => advanced::view(self, context),
+            "remote" => remote::view(self, context),
             "about" => about::view(self, context),
             _ => general::view(self, context),
         }

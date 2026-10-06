@@ -300,6 +300,9 @@ impl Component for Settings {
                 }
             }
 
+            // 手机输入页：开关写回配置，Server 一秒内热加载
+            Message::RemoteEnabled(on) => self.save("remote", "enabled", on),
+
             // 关于页
             Message::OpenWebsite => open_with_explorer(about::WEBSITE_URL),
             Message::OpenDownload => open_with_explorer(qingjian_update::DOWNLOAD_URL),
@@ -367,6 +370,7 @@ impl Component for Settings {
             item("aux_code", "辅码", Symbol::Character),
             item("usage", "统计", Symbol::List),
             item("advanced", "高级", Symbol::Repair),
+            item("remote", "手机输入", Symbol::Phone),
             item("about", "关于", Symbol::Help),
         ];
         NavigationView::new()

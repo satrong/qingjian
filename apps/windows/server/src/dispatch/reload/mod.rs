@@ -281,6 +281,8 @@ impl Router {
             reload.applied_aux_code = config.aux_code.clone();
             self.reload_aux_codes();
         }
+        // 手机推送上屏：开关 / 端口 / 令牌变了就起停服务（其余配置项无关，`sync_remote` 自己比）
+        self.sync_remote(&config.remote);
     }
 
     /// 按当前配置重装辅码码表：`codes/` 目录变了或 `[aux_code]` 变了都走这里。

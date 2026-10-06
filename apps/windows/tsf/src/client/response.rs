@@ -11,6 +11,18 @@ pub struct ModeSyncReply {
 
     /// 右键菜单打勾用的开关状态，同样每一拍都带。
     pub indicator: IndicatorState,
+
+    /// 手机推送来、要插进当前输入框的文本（`Some` 表示有活要干，取走即失效）。
+    pub remote: Option<String>,
+}
+
+/// 一次 [`super::EngineClient::poll`] 的应答：一帧要画的东西，外加手机推送捎来的文本。
+pub struct PollReply {
+    /// 要重绘的帧。
+    pub frame: Frame,
+
+    /// 手机推送来、要插进当前输入框的文本。
+    pub remote: Option<String>,
 }
 
 /// Server 对一次按键的处理结果。

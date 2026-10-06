@@ -251,6 +251,20 @@ mac `candidates/skin.rs::list()` 与 win 设置 `pages/candidates.rs::list_skins
 与查到的结果 `Available`。`Version` 自己实现语义化版本比较，不引 semver。`[update]` 配置与 `UpdateChannel` 在 `qingjian-platform`。
 `examples/check.rs` 手动走一遍；`tools/release-sign` 是发版侧的 keygen / sign / verify。
 
+### Windows 的接入（`apps/windows/server/src/dispatch/remote.rs`）
+
+服务按 `[remote]` 起停，挂在既有的配置热加载上（`apply_config` → `sync_remote`，`main.rs` 里 `set_work_sender`
+把工人通道交给 Router；没接管道服务时不起）。文本走 `Work::Remote`：crate 的服务线程 → 泵线程（转成 `Work`）
+→ Router 挑目标会话（`focused`，没有就 `last_session`——`OpenSession` 记的，光点进输入框还没打字时靠它；
+私密输入框不做目标）→ 清掉该会话组句 → 等着捎给 DLL。
+**不能主动推帧**：管道是一问一答，所以文本搭 `ServerMessage::Update`（Poll 应答，组句期间）与 `ModeSync`
+（SyncMode 应答，空闲时）两个既有应答的 `remote: Option<String>` 字段；字段带 `#[serde(default)]`，
+老 DLL 读不到就忽略，**不用升协议版本**。DLL 侧 `TextService_Impl::insert_remote_text` 插进 `last_context`，
+没有就 `ITfThreadMgr::GetFocus().GetTop()`（刚点进输入框还没敲键时 `last_context` 是空的）。
+设置程序「手机输入」页（`pages/remote.rs`）：开关写 `[remote] enabled`，地址与令牌给成可选中的 `TextBlock`；
+Windows 不画二维码。`tests/engine_loop/remote.rs` 起真服务打真 HTTP 覆盖起停、目标会话、两条捎带路径、
+错令牌与私密框。
+
 ### macOS 的接入（`apps/macos/src/remote/`）
 
 服务线程（crate 内）→ `mpsc` → **泵线程**（普通 std 线程，只挪文本并立即答复手机）→ `Mutex` 里的待插入队列 → **主线程**

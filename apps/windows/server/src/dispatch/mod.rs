@@ -12,6 +12,7 @@ mod config;
 mod key;
 mod message;
 mod reload;
+mod remote;
 mod rescore;
 mod session;
 mod skin;
@@ -35,6 +36,7 @@ use self::composed::Composed;
 pub use self::config::RouterConfig;
 use self::reload::ConfigReload;
 pub use self::reload::{DataDirs, attach_cloud};
+use self::remote::Remote;
 pub use self::rescore::find_model;
 use self::rescore::{ModelLoader, RescoreState};
 use self::session::SessionInfo;
@@ -57,6 +59,16 @@ pub struct Router {
 
     /// 当前持有组句的会话。
     focused: Option<SessionId>,
+
+    /// 最近开过会话的那个（`OpenSession` 记）。用户刚点进输入框还没打字时 `focused` 还是旧的，
+    /// 手机推送要有个目标就靠它（见 [`remote`]）。
+    last_session: Option<SessionId>,
+
+    /// 工人通道的发送端：手机推送的泵线程靠它把文本投进来（`None` 表示没接管道服务，测试用）。
+    work: Option<std::sync::mpsc::Sender<crate::ipc::Work>>,
+
+    /// 手机推送上屏：服务与待插入的文本，见 [`remote`]。
+    remote: Remote,
 
     /// 当前组句的展示状态；没在组句时为 `None`。
     composed: Option<Composed>,
@@ -143,6 +155,9 @@ impl Router {
             },
             sessions: HashMap::new(),
             focused: None,
+            last_session: None,
+            work: None,
+            remote: Remote::default(),
             composed: None,
             surrounding: None,
             #[cfg(windows)]
@@ -205,6 +220,12 @@ impl Router {
 
     pub fn set_status_sink(&mut self, sink: Box<dyn StatusSink>) {
         self.status = sink;
+    }
+
+    /// 交出工人通道的发送端（[`serve_pipe`](crate::ipc::serve_pipe) 建好之后调用）：
+    /// 手机推送的泵线程靠它把文本投给 Router。
+    pub fn set_work_sender(&mut self, work: std::sync::mpsc::Sender<crate::ipc::Work>) {
+        self.work = Some(work);
     }
 
     /// 处理一条消息；`None` 表示不用回话。到点顺带把学习数据落盘。

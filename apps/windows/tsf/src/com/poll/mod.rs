@@ -128,20 +128,26 @@ fn poll_once(context: &PollContext) {
     let Some(client) = guard.as_mut() else {
         return;
     };
+    // 手机推送捎来的文本：插进当前输入框要借文档，得先放掉引擎借用
+    let mut remote = None;
     match client.poll() {
-        Ok(frame) => {
+        Ok(reply) => {
             // 翻译评审时回空帧 = 翻译已在 Server 侧结束（云端没给译文）。
-            if translating && frame.is_empty() {
-                drop(guard);
+            if translating && reply.frame.is_empty() {
                 context.shared.set_translating(false);
                 context.shared.hide_candidates();
             }
+            remote = reply.remote;
         }
         Err(error) => {
             log(&format!("云联想轮询失败，断开，下一键重连: {error}"));
             *guard = None;
             context.shared.end_composing();
         }
+    }
+    drop(guard);
+    if let Some(text) = remote {
+        super::service::on_remote_text(text);
     }
 }
 
@@ -191,5 +197,9 @@ fn sync_mode(context: &PollContext) {
     super::service::on_indicator_state(reply.indicator);
     if let Some(english) = reply.english {
         super::service::on_mode_sync(english);
+    }
+    // 空闲时这一拍是手机推送唯一的送达途径（见 remote.rs）
+    if let Some(text) = reply.remote {
+        super::service::on_remote_text(text);
     }
 }

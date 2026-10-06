@@ -32,6 +32,8 @@ impl Router {
                     self.reset_composition();
                     self.focused = None;
                 }
+                // 刚被点进输入框的会话：手机推送没有按键可依，靠它找目标（见 remote.rs）
+                self.last_session = Some(session);
                 self.sessions.insert(
                     session,
                     SessionInfo {
@@ -106,6 +108,7 @@ impl Router {
                     english: Some(self.english),
                     input: self.input_settings(),
                     indicator: self.indicator_state(),
+                    remote: self.take_remote_for(session),
                 })
             }
             ClientMessage::ImeSwitched { session } => {
@@ -124,6 +127,10 @@ impl Router {
                     self.reset_composition();
                     self.focused = None;
                 }
+                if self.last_session == Some(session) {
+                    self.last_session = None;
+                }
+                self.drop_remote_for(session);
                 self.flush_learning();
                 tracing::debug!(?session, "会话关闭");
                 None
@@ -191,6 +198,10 @@ impl Router {
         } else {
             Frame::default()
         };
-        ServerMessage::Update { session, frame }
+        ServerMessage::Update {
+            session,
+            frame,
+            remote: self.take_remote_for(session),
+        }
     }
 }

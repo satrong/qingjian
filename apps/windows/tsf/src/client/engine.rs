@@ -1,11 +1,11 @@
 use std::io::{Read, Write};
 
 use qingjian_platform::protocol::{
-    ClientMessage, Frame, IndicatorCommand, InputSettings, KeyEvent, PROTOCOL_VERSION, ScreenRect,
+    ClientMessage, IndicatorCommand, InputSettings, KeyEvent, PROTOCOL_VERSION, ScreenRect,
     ServerMessage, SessionId, read_message, write_message,
 };
 
-use super::{KeyReply, KeyResponse, ModeSyncReply};
+use super::{KeyReply, KeyResponse, ModeSyncReply, PollReply};
 use crate::error::ClientError;
 
 /// 连 Server 的一个会话客户端，开在一条已连好的双工流上（Windows 下是命名管道，测试里是内存流）。
@@ -117,12 +117,12 @@ impl<S: Read + Write> EngineClient<S> {
         }
     }
 
-    /// 组句期间定时拉一次云联想的异步结果，回最新一帧。
-    pub fn poll(&mut self) -> Result<Frame, ClientError> {
+    /// 组句期间定时拉一次云联想的异步结果，回最新一帧（外加手机推送捎来的文本）。
+    pub fn poll(&mut self) -> Result<PollReply, ClientError> {
         match self.call(&ClientMessage::Poll {
             session: self.session,
         })? {
-            ServerMessage::Update { frame, .. } => Ok(frame),
+            ServerMessage::Update { frame, remote, .. } => Ok(PollReply { frame, remote }),
             _ => Err(ClientError::Unexpected("expected update for poll")),
         }
     }
@@ -182,6 +182,7 @@ impl<S: Read + Write> EngineClient<S> {
                 english,
                 input,
                 indicator,
+                remote,
                 ..
             } => {
                 self.context_window = (input.context_before, input.context_after);
@@ -189,6 +190,7 @@ impl<S: Read + Write> EngineClient<S> {
                     english,
                     input,
                     indicator,
+                    remote,
                 })
             }
             _ => Err(ClientError::Unexpected("expected mode sync")),

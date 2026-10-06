@@ -113,6 +113,10 @@ pub(crate) enum Message {
     ExportLogs,
     ClearInputLog,
 
+    // 手机输入页
+    /// 手机推送上屏开关（`[remote] enabled`）。
+    RemoteEnabled(bool),
+
     // 关于页
     OpenWebsite,
 

@@ -155,6 +155,11 @@ pub(super) fn on_indicator_state(state: IndicatorState) {
     with_active(|service| service.indicator_state.set(state));
 }
 
+/// 轮询捎来了手机推送的文本：插进当前输入框（见 [`TextService_Impl::insert_remote_text`]）。
+pub(super) fn on_remote_text(text: String) {
+    with_active(|service| service.insert_remote_text(text));
+}
+
 impl TextService {
     #[allow(clippy::new_without_default)] // 有 lock_module 副作用
     pub fn new() -> Self {
