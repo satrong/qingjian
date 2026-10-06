@@ -72,6 +72,9 @@ reqwest = { version = "0.13", default-features = false }
 uuid = { version = "1.26", features = ["v4"] }
 tokio = { version = "1.53.1", features = ["rt", "time", "sync"] }
 
+# 枚举网卡地址（POSIX 走 getifaddrs，Windows 走 GetAdaptersAddresses）：手机推送上屏要说出自己在局域网里是哪个 IP
+if-addrs = "0.15.0"
+
 # 检查更新：releases.json 的 ed25519 签名（发版时 tools/release-sign 签，客户端验）
 ed25519-dalek = "3.0.0"
 base64 = "0.23.1"
@@ -91,6 +94,7 @@ objc2-input-method-kit = "0.3.2"
 objc2-core-image = { version = "0.3.2", features = ["CIFilter", "CIContext", "CIImage"] }
 objc2-core-text = { version = "0.3.2", features = ["CTFont", "CTFontDescriptor"] }
 objc2-core-foundation = { version = "0.3.2", features = ["CFArray", "CFBase", "CFDictionary", "CFNumber", "CFSet", "CFString", "CFURL"] }
+objc2-core-graphics = { version = "0.3.2", features = ["CGColorSpace", "CGContext", "CGImage"] }
 
 # Windows 平台层
 embed-manifest = "1.4.0"

@@ -38,5 +38,8 @@ objc2-core-image = { workspace = true, features = ["CIFilter", "CIContext", "CII
 workspace = true
 
 [dev-dependencies]
-# 只给 tests/info_plist.rs 解析仓库里的 Info.plist 用，不进产物
+# 只给tests/info_plist.rs 解析仓库里的 Info.plist 用，不进产物
 plist.workspace = true
+# 只给 remote/panel.rs 的单测用：把二维码位图画进一块自建缓冲区，量模块宽度有没有被缩放。
+# 已经在依赖树里（objc2-app-kit 依赖它），声明进来不会引入新包。
+objc2-core-graphics.workspace = true
