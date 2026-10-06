@@ -20,6 +20,7 @@ README.md 只介绍项目，所有技术内容放在这里，分四类：前三�
 | [design/extra-body.md](design/extra-body.md) | 云联想额外参数（2026-10-01）：云服务页的 JSON 口子，原样合并进请求体、同名键覆盖内置值、解析与校验时机 |
 | [design/skin.md](design/skin.md) | 自定义皮肤（2026-10-03）：皮肤文件 TOML 的格式与逐层回退、`[general] skin` 与三档外观的关系、各平台落点与热加载、分期 |
 | [design/pinyin-tone.md](design/pinyin-tone.md) | 声调匹配（2026-10-05）：调号键位与内联输入、硬过滤与零命中降级、`tone.qj` 旁表的格式与数据源（CC-CEDICT / Unihan）、配置与各壳装载、与翻页键的冲突 |
+| [design/remote-input.md](design/remote-input.md) | 手机推送上屏（2026-10-06）：输入法自开局域网 Web 服务，手机浏览器一页表单提交文本直插电脑端输入框；为什么不做 App / HTTPS / mDNS，协议与状态码，令牌与明文 HTTP 的安全边界，各平台接入点 |
 | [plan/roadmap.md](plan/roadmap.md) | 分阶段路线图、各阶段的依赖关系与已完成项 |
 | [plan/zh_tw_support_plan.md](plan/zh_tw_support_plan.md) | 繁体输出与台湾注音支持的分析与方案（贡献者 pinchiu，#22）：读音标准差异、台湾用语、简转繁一对多；两条路线 |
 | [plan/todo.md](plan/todo.md) | 待办清单，按「从自用到能给别人用」排 |

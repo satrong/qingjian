@@ -9,6 +9,7 @@ mod log_level;
 mod model;
 mod modifiers;
 mod preedit_mode;
+mod remote;
 mod scheme;
 mod shift_letter;
 mod shortcut;
@@ -42,6 +43,7 @@ pub use log_level::LogLevel;
 pub use model::LocalModelConfig;
 pub use modifiers::Modifiers;
 pub use preedit_mode::PreeditMode;
+pub use remote::{DEFAULT_REMOTE_PORT, RemoteConfig};
 pub use scheme::{Scheme, scheme_label};
 pub use shift_letter::ShiftLetter;
 pub use shortcut::ShortcutConfig;
@@ -89,6 +91,9 @@ pub struct Config {
 
     /// 检查更新。
     pub update: UpdateConfig,
+
+    /// 手机推送上屏。
+    pub remote: RemoteConfig,
 }
 
 fn deserialize_phrases<'de, D: serde::Deserializer<'de>>(
@@ -362,6 +367,15 @@ enabled = false
 # 记住的屏幕位置（物理像素，拖动后自动写入）；留空则首次出现在屏幕右下角
 # x = 0
 # y = 0
+
+[remote]
+# 手机推送上屏：青简自己开一个局域网小服务，手机浏览器打开一页表单，提交的文本插进当前输入框（不用装 App）。
+# 菜单栏「手机输入」里有开关与二维码；手机与电脑要连同一个 Wi-Fi，电脑上没有文本框时文本会等着
+enabled = false
+# 端口：手机侧靠「IP + 端口」记住地址，改了要重新扫码
+port = 23333
+# 配对令牌，首次开启时自动生成并写在这里（相当于这一页的钥匙，别外传）
+token = ""
 
 [update]
 # 检查更新：每天向官网（qingjian.app）读一次版本索引，有新版在菜单与设置的「关于」页提示；请求不带任何标识，不自动下载安装
