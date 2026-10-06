@@ -89,8 +89,8 @@ fn zero_hit_tones_degrade_back_to_unttoned_results() {
     assert!(off.raw_mode());
 }
 
-/// raw 边界：调号在开着时算拼音键（`kai-fan` 不再直输），坏输入（开头调号、连续调号、
-/// 无音节可切）仍然原样上屏；开关关着一切照旧。
+/// raw 边界：调号在开着时算拼音键（`kai-fan` 不再直输），坏输入（开头调号、无音节可切）
+/// 仍然原样上屏；开关关着一切照旧。
 #[test]
 fn raw_mode_respects_the_tone_switch() {
     let mut engine = tone_engine();
@@ -101,8 +101,8 @@ fn raw_mode_respects_the_tone_switch() {
     assert!(engine.raw_mode());
     engine.set_input("-kai");
     assert!(engine.raw_mode()); // 开头的调号挂不上音节
-    engine.set_input("kai--");
-    assert!(engine.raw_mode()); // 连续调号
+    engine.set_input("kai-");
+    assert!(!engine.raw_mode()); // 连着敲的第二个调号改调，不成坏输入
     engine.set_input("kai'");
     assert!(!engine.raw_mode()); // 撇号照旧只是音节分隔
 
@@ -145,4 +145,70 @@ fn zhuyin_keeps_its_own_tone_keys_out_of_the_raw_gate() {
     engine.set_zhuyin_mode(true);
     engine.set_input("1j4"); // 已有用例里的注音键串，带调号键
     assert!(!engine.raw_mode());
+}
+
+/// 调号要出现在拼音串里：输入什么调号就显示什么调号，用户才看得出自己标的是哪一声。
+#[test]
+fn tone_marks_show_up_in_the_preedit() {
+    let mut engine = tone_engine();
+    for (input, expected) in [
+        ("ni=", "ni="),
+        ("ni-", "ni-"),
+        ("ni-hao", "ni-'hao"),
+        ("nihao=", "ni'hao="),
+        ("kai-fan.", "kai-'fan."),
+    ] {
+        engine.set_input(input);
+        let query = engine.query().unwrap();
+        assert_eq!(query.marked_text(), expected, "{input}");
+    }
+}
+
+/// 光标停在调号前后都要落在显示串的对应位置（显示串里调号占一格）。
+#[test]
+fn cursor_maps_onto_the_tone_marks() {
+    let mut engine = tone_engine();
+    engine.set_input("ni-hao");
+    let at = |engine: &mut Engine, moves: usize| {
+        engine.move_cursor_home();
+        for _ in 0..moves {
+            engine.move_cursor_right();
+        }
+        let query = engine.query().unwrap();
+        (query.marked_text(), query.marked_cursor())
+    };
+    assert_eq!(at(&mut engine, 0), ("ni-'hao".to_owned(), 0));
+    // 光标在中间时作用域只有光标前那段，`-` 归后面的 hao，跟着剩余拼音显示
+    assert_eq!(at(&mut engine, 2), ("ni'-hao".to_owned(), 2)); // ni|
+    assert_eq!(at(&mut engine, 3), ("ni-'hao".to_owned(), 3)); // ni-|
+    // 末尾：显示串比敲的多一个自动补的 `'`
+    assert_eq!(at(&mut engine, 6), ("ni-'hao".to_owned(), 7));
+}
+
+/// 一个音节后只留一个调号：连着敲第二个调号是改调，不是追加第二个。
+/// `ni-=` → `ni=`，退格一次就回到 `ni`。
+#[test]
+fn a_second_tone_mark_replaces_the_first() {
+    let mut engine = tone_engine();
+    engine.set_input("ni-=");
+    assert!(!engine.raw_mode());
+    assert_eq!(engine.composition().text(), "ni=");
+    let query = engine.query().unwrap();
+    assert_eq!(query.marked_text(), "ni=");
+    assert!(engine.backspace());
+    assert_eq!(engine.composition().text(), "ni");
+    // 每个音节各留一个：`ni-hao=` → `ni-hao=`；连续敲只改最后那一个
+    engine.set_input("ni-hao-=");
+    assert_eq!(engine.composition().text(), "ni-hao=");
+    assert!(!engine.raw_mode());
+}
+
+/// 改调之后筛词也跟着走：`zhi-` 留知（一声），补一个 `=` 改成三声就只剩指。
+#[test]
+fn switching_tone_switches_the_candidate_filter() {
+    let mut engine = tone_engine();
+    assert!(candidates(&mut engine, "zhi-").contains(&"知".to_owned()));
+    let items = candidates(&mut engine, "zhi-=");
+    assert!(items.contains(&"指".to_owned()));
+    assert!(!items.contains(&"知".to_owned()));
 }

@@ -2,11 +2,11 @@ use crate::candidate::CandidateList;
 use crate::correction::Correction;
 use crate::parser::Segmentation;
 
-/// 最优切分的音节用 `'` 连接，再接未切分尾部。
+/// 最优切分的音节用 `'` 连接（音节带上跟在后面的调号），再接未切分尾部。
 pub(crate) fn join_marked(segmentations: &[Segmentation], tail: &str) -> String {
     let mut text = segmentations
         .first()
-        .map(|s| s.joined("'"))
+        .map(|s| s.marked("'"))
         .unwrap_or_default();
     if !tail.is_empty() {
         if !text.is_empty() {
@@ -18,7 +18,8 @@ pub(crate) fn join_marked(segmentations: &[Segmentation], tail: &str) -> String 
 }
 
 /// 与 [`join_marked`] 相同的分段，但用原样大小写的输入（`Cpan`）：切分是按小写算的，
-/// 大小写只影响显示，逐段按同样的字节长度取回原样文本。
+/// 大小写只影响显示，逐段按同样的字节长度取回原样文本。调号在原样串里占一个字节，
+/// 按音节取完字母要把它一并带上（切分键不含调号，长度对不上）。
 pub(crate) fn join_marked_typed(typed: &str, segmentations: &[Segmentation], tail: &str) -> String {
     let mut text = String::new();
     let mut offset = 0;
@@ -27,7 +28,10 @@ pub(crate) fn join_marked_typed(typed: &str, segmentations: &[Segmentation], tai
             if index > 0 {
                 text.push('\'');
             }
-            let end = (offset + syllable.text.len()).min(typed.len());
+            let mut end = (offset + syllable.text.len()).min(typed.len());
+            if syllable.tone.is_some() {
+                end = (end + 1).min(typed.len());
+            }
             text.push_str(&typed[offset..end]);
             offset = end;
         }

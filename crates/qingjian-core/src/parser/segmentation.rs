@@ -71,13 +71,30 @@ impl Segmentation {
         self.syllables.last().is_some_and(|s| !s.complete)
     }
 
-    /// 用分隔符连接各音节，给 marked text 用：`kai'fa`、`k'f`。
+    /// 用分隔符连接各音节的字母（不含调号），给查词键、学习键用：`kai'fa`、`k'f`。
+    /// 显示用 [`Self::marked`]，那个带调号。
     pub fn joined(&self, separator: &str) -> String {
         self.syllables
             .iter()
             .map(|s| s.text.as_str())
             .collect::<Vec<_>>()
             .join(separator)
+    }
+
+    /// 用分隔符连接各音节给 marked text 用：每个音节是它的字母连同跟在后面的调号
+    /// （`kai'fa-`、`k'f`、`ni-'hao`）。用户敲的调号要看得见，才知道标的是哪一声。
+    pub fn marked(&self, separator: &str) -> String {
+        let mut marked = String::new();
+        for (index, syllable) in self.syllables.iter().enumerate() {
+            if index > 0 {
+                marked.push_str(separator);
+            }
+            marked.push_str(&syllable.text);
+            if let Some(tone) = syllable.tone {
+                marked.push(crate::parser::tone_char(tone));
+            }
+        }
+        marked
     }
 }
 

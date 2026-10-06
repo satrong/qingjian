@@ -34,6 +34,10 @@ TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
 与云联想。preedit 分段多出 [触发键 `Typed`][码段 `MarkedKind::AuxCode`]，见 `Query::marked_segments`。
 - 声调匹配（`[general] tone_matching`，缺省关）：调号键 `- / = \ .` 内联挂在音节后（`parser` 的 `is_tone_mark` /
   `segmentable_with_marks` 校验「调号必须挂在字母后」；双拼在 `shuangpin::decode` 顶部把调号附到最后一个单元）。
+  调号在 preedit 里看得见：`Segmentation::marked`（带调号，显示用）与 `joined`（只有字母，查词键 / 学习键用）分开，
+  `query::join_marked` / `join_marked_typed` 走前者；后者按音节长度回取原样文本，调号在原样串里占一字节要一并带上。
+  连着敲第二个调号是**改调**：`Engine::push` 里 `replaces_tone` 先退掉前一个（`ni-=` → `ni=`），否则 `ni-=` 是切不开的
+  坏输入、整段会退成英文直输段；只在调号当拼音键时替（开关关着 / 注音 / 已是 raw 段都按原样追加）。
   `query::phonetic::typed_tones` 按**输入的小写字母位**数出「位置 → 调」（双拼 / 注音先解码，按 `decoded.segmentation()`
   逐音节累计读音字母数——按切分位置数会被歧义切分的前缀候选绕过，那版已废弃）；`tone_keeps` 用 `词\t词库拼音` 查
   `Engine.tone_table`（`set_tone_table`，`AuxCodeTable`）逐音节比码（a–d = 1–4 声、e 轻声、o 未知放行），零命中整轮降级回无声调；

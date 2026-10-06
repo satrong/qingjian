@@ -173,6 +173,11 @@ impl Engine {
             self.page_turns = 0;
             self.retype_snapshot = None;
         }
+        // 连着敲调号是改调：后一个顶掉前一个，缓冲区里一个音节只留一个调号（`ni-=` → `ni=`）。
+        // 不在 push 里做的话 `ni-=` 是切不开的坏输入，整段会退成英文直输段。
+        if self.replaces_tone(c) {
+            self.composition.backspace();
+        }
         // 中文模式下 Shift+字母（配置 `shift_letter = "compose"` 时才收）：按小写进缓冲区参与匹配
         // （`Cpan` 与 `cpan` 一样出 C盘），原样上屏（回车 / 无候选）时再还原大写。
         // 缺省关：壳把大写字母直接交给应用，根本进不到这里；英文模式与英文直输段（`no-Way`）始终保留原样。
@@ -185,6 +190,20 @@ impl Engine {
         } else {
             self.composition.push(c);
         }
+    }
+
+    /// 这次敲的 `c` 是调号、且光标前一个字符也是调号吗（即「改调」而不是「给下一个音节标调」）。
+    /// 只在调号当拼音键时成立：开关关着、或注音（调号是布局键）、或整段已是英文直输段
+    /// （`no-wa-=` 里的调号是普通字符）时都按原样追加。
+    fn replaces_tone(&self, c: char) -> bool {
+        parser::is_tone_mark(c).is_some()
+            && self.tone_matching
+            && !self.zhuyin
+            && !self.raw_mode()
+            && self.composition.text()[..self.composition.cursor()]
+                .chars()
+                .next_back()
+                .is_some_and(|previous| parser::is_tone_mark(previous).is_some())
     }
 
     /// 退格。辅码态里删的是码段：删掉最后一个码字母；删空时按「码删空后留在辅码态」开关分岔——
