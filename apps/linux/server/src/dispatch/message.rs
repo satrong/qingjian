@@ -38,6 +38,8 @@ impl Router {
                     outcome,
                     commit,
                     frame,
+                    // 手机推送只经 LinuxEvent 那条路捎带（fcitx 插件每个事件都收得到）
+                    remote: None,
                 })
             }
             ClientMessage::Poll { session } if self.sessions.contains_key(&session) => {

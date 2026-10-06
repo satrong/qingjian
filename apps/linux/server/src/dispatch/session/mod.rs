@@ -99,6 +99,8 @@ impl Router {
         }
         self.focused = None;
         self.sessions.remove(&session);
+        // 等着这个会话的手机推送没有收件人了
+        self.drop_remote_for(session);
         if let Some(previous) = previous {
             self.ensure_focus(previous);
         }

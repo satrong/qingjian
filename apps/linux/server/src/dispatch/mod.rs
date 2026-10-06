@@ -6,14 +6,18 @@ mod display;
 mod key;
 mod linux;
 mod message;
+mod remote;
 mod rescore;
 mod session;
+pub mod work;
 
 use self::composed::Composed;
 pub use self::config::RouterConfig;
+use self::remote::Remote;
 pub use self::rescore::find_model;
 use self::rescore::{ModelLoader, RescoreState};
 use self::session::SessionInfo;
+pub use self::work::Work;
 use qingjian_core::Engine;
 use qingjian_platform::protocol::{ClientMessage, ServerMessage, SessionId};
 use std::collections::HashMap;
@@ -36,6 +40,12 @@ pub struct Router {
 
     /// 当前装入 Engine 的会话。
     focused: Option<SessionId>,
+
+    /// 手机推送上屏：服务与待插入的文本，见 [`remote`]。
+    remote: Remote,
+
+    /// 工人通道的发送端：手机推送的泵线程靠它把文本投进来（`None` 表示没接 socket 服务，测试用）。
+    work: Option<std::sync::mpsc::SyncSender<Work>>,
 
     /// 当前候选与 preedit。
     composed: Option<Composed>,
@@ -77,6 +87,8 @@ impl Router {
             config,
             sessions: HashMap::new(),
             focused: None,
+            remote: Remote::default(),
+            work: None,
             composed: None,
             highlight: 0,
             navigated: false,

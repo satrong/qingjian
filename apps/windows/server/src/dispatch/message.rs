@@ -180,6 +180,8 @@ impl Router {
             outcome,
             commit,
             frame: self.current_frame(),
+            // 手机推送搭 Poll / SyncMode 那两条便车（组句 / 空闲），按键这条不带
+            remote: None,
         }
     }
 

@@ -2743,6 +2743,7 @@ dependencies = [
  "qingjian-lm",
  "qingjian-neural",
  "qingjian-platform",
+ "qingjian-remote-web",
  "qingjian-translate",
  "serde",
  "serde_json",

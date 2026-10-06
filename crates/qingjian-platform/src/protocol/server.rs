@@ -83,6 +83,12 @@ pub enum ServerMessage {
 
         /// 处理后要绘制的组句状态（preedit + 候选）；空 [`Frame`] 表示收起候选窗口。
         frame: Frame,
+
+        /// 手机推送来、要插进这个会话的文本（见 [`ServerMessage::take_remote`]）。
+        /// 先于 `commit` 上屏——它是完整的句子，不该混在这一次按键的结果里。
+        /// 老 DLL / 老插件读不到这个字段。
+        #[serde(default)]
+        remote: Option<String>,
     },
 
     /// 对一次 [`super::ClientMessage::Commit`] 的答复：缓冲区里原样上屏的文本（拼音字母 / 英文模式下敲的字母）；
@@ -145,12 +151,15 @@ pub enum ServerMessage {
 impl ServerMessage {
     /// 取走这一条里捎带的手机推送文本（取走即清掉，一个会话只插一次）。
     ///
-    /// 命名管道是一问一答：Server 不能主动给 DLL 推帧（非应答帧会被对端当成上一次请求的应答而错位），
-    /// 所以待插入的文本搭 [`Self::Update`] 与 [`Self::ModeSync`] 两种既有应答的便车——
-    /// 组句期间 DLL 收前者，空闲时收后者（见 `apps/windows/server/src/dispatch/remote.rs`）。
+    /// 命名管道 / Unix socket 都是一问一答：Server 不能主动给对端推帧（非应答帧会被对端当成上一次请求的
+    /// 应答而错位），所以待插入的文本搭既有应答的便车：Windows 收 [`Self::Update`]（`Poll`）与
+    /// [`Self::ModeSync`]（`SyncMode`），Linux 每个事件都有回包，就搭 [`Self::KeyResult`]。
+    /// 取走即清，一个会话只插一次（见各 Server 的 `dispatch/remote.rs`）。
     pub fn take_remote(&mut self) -> Option<String> {
         let slot = match self {
-            Self::Update { remote, .. } | Self::ModeSync { remote, .. } => remote,
+            Self::KeyResult { remote, .. }
+            | Self::Update { remote, .. }
+            | Self::ModeSync { remote, .. } => remote,
             _ => return None,
         };
         slot.take()

@@ -1,5 +1,5 @@
 //! 同用户连接内复用独立会话，拒绝未协商输入，关闭通知不产生回包。
-use super::{NEXT_SESSION, Request, dispatch, dispatch_json, session::Session};
+use super::{NEXT_SESSION, Work, dispatch, dispatch_json, session::Session};
 use crate::protocol::{DisplayAcknowledged, DisplayIdentity, LINUX_UI_PROTOCOL, LinuxEvent};
 use qingjian_platform::protocol::{
     ClientMessage, Frame, PROTOCOL_VERSION, SessionId, read_message, write_message,
@@ -12,11 +12,7 @@ use std::sync::atomic::Ordering;
 use std::sync::mpsc::SyncSender;
 use std::time::Duration;
 
-pub(super) fn serve_connection(
-    mut stream: UnixStream,
-    sender: SyncSender<Request>,
-    settings: Value,
-) {
+pub(super) fn serve_connection(mut stream: UnixStream, sender: SyncSender<Work>, settings: Value) {
     let mut credentials = libc::ucred {
         pid: 0,
         uid: 0,

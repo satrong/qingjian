@@ -13,8 +13,8 @@ use std::sync::mpsc::{self, SyncSender};
 use std::thread;
 use std::time::Instant;
 
-/// 主线程请求队列；容量有限，损坏客户端不能无限占用内存。
-type Request = (serde_json::Value, mpsc::Sender<Option<serde_json::Value>>);
+/// 工人队列的活；类型本体在 [`crate::dispatch`]（socket 只是它的一个投递方）。
+pub use crate::dispatch::Work;
 static STOP: AtomicBool = AtomicBool::new(false);
 const MAX_CLIENT_CONNECTIONS: usize = 64;
 static CONNECTIONS: AtomicUsize = AtomicUsize::new(0);
@@ -85,10 +85,17 @@ pub fn bind_socket(path: &Path) -> io::Result<UnixListener> {
     Ok(listener)
 }
 
-pub fn serve_socket(path: impl AsRef<Path>, router: &mut Router) -> io::Result<()> {
+pub fn serve_socket(
+    path: impl AsRef<Path>,
+    router: &mut Router,
+    config: &qingjian_platform::Config,
+) -> io::Result<()> {
     let listener = bind_socket(path.as_ref())?;
     let settings = router.display_settings();
-    let (sender, receiver) = mpsc::sync_channel::<Request>(128);
+    let (sender, receiver) = mpsc::sync_channel::<Work>(128);
+    // 手机推送的泵线程要靠这个通道把文本投进来；起服务放在这儿（配置读一次，没有热加载）
+    router.set_work_sender(sender.clone());
+    router.sync_remote(&config.remote);
     thread::spawn(move || {
         for stream in listener.incoming() {
             match stream {
@@ -122,11 +129,13 @@ pub fn serve_socket(path: impl AsRef<Path>, router: &mut Router) -> io::Result<(
             continue;
         }
         match receiver.recv_timeout(due - now) {
-            Ok((message, reply)) => {
+            Ok(Work::Request(message, reply)) => {
                 let _ = reply.send(router.handle_linux(message));
                 // 处理完消息节拍可能变短了（按键起了防抖）：到点时间只提前不推后
                 due = due.min(Instant::now() + router.next_tick());
             }
+            // 手机推送：挑好目标会话、立即答复手机，插入等插件下一个事件捎带
+            Ok(Work::Remote(incoming)) => router.accept_remote(incoming),
             Err(mpsc::RecvTimeoutError::Timeout) => {}
             Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()),
         }
@@ -135,20 +144,20 @@ pub fn serve_socket(path: impl AsRef<Path>, router: &mut Router) -> io::Result<(
     Ok(())
 }
 
-fn dispatch(sender: &SyncSender<Request>, message: ClientMessage) -> Option<ServerMessage> {
+fn dispatch(sender: &SyncSender<Work>, message: ClientMessage) -> Option<ServerMessage> {
     let (reply, receiver) = mpsc::channel();
     sender
-        .send((serde_json::to_value(message).ok()?, reply))
+        .send(Work::Request(serde_json::to_value(message).ok()?, reply))
         .ok()?;
     serde_json::from_value(receiver.recv().ok().flatten()?).ok()
 }
 
 fn dispatch_json(
-    sender: &SyncSender<Request>,
+    sender: &SyncSender<Work>,
     message: serde_json::Value,
 ) -> Option<serde_json::Value> {
     let (reply, receiver) = mpsc::channel();
-    sender.send((message, reply)).ok()?;
+    sender.send(Work::Request(message, reply)).ok()?;
     receiver.recv().ok().flatten()
 }
 

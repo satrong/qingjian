@@ -70,6 +70,7 @@ impl Router {
                         outcome,
                         commit,
                         frame: Default::default(),
+                        remote: None,
                     });
                 }
                 self.ensure_focus(session);
@@ -131,6 +132,8 @@ impl Router {
             outcome,
             commit,
             frame,
+            // 手机推送的文本捎在这一条上（每个事件都有回包，见 dispatch/remote.rs）
+            remote: self.take_remote_for(session),
         })
     }
 

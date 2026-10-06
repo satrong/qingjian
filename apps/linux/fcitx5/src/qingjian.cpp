@@ -234,10 +234,16 @@ bool QingjianEngine::exchange(InputContext *context, const nlohmann::json &event
                 }
             }
         }
+        // 手机推送的文本（[remote] 开启时）先插进去，再插这一键自己的结果：它是一整句话，
+        // 混进一次按键的上屏里会插错位置。回包里没有这个字段（老 Server）时就是空。
+        const auto &remote = result.contains("remote") ? result.at("remote") : nlohmann::json();
         if (watched.get() && session->generation == generation && session->lifecycle == lifecycle
             && context->hasFocus() == focused && context->capabilityFlags() == capabilities
-            && (session->displayIdentity == identity || validDisplayFailure) && commit.is_string())
-            context->commitString(commit.get<std::string>());
+            && (session->displayIdentity == identity || validDisplayFailure)) {
+            if (remote.is_string() && !remote.get_ref<const std::string &>().empty())
+                context->commitString(remote.get<std::string>());
+            if (commit.is_string()) context->commitString(commit.get<std::string>());
+        }
         return outcome == "Consumed";
     } catch (const std::exception &) { disconnectAll(); return consumed; }
 }

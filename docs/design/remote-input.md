@@ -81,7 +81,11 @@ CRLF 收成一个换行，零宽连接符保留（emoji 序列要用）。清洗
 
 ## 各平台的接入点
 
-- **Linux**：`LinuxEvent` 加一个变体，Server 分派后直接 `commitString`，绕过 Engine。Server 常驻，最省事。
+- **Linux（已接）**：Unix socket 也是一问一答，但 fcitx5 插件**每个事件都有回包**（按键、焦点、选词、翻页都是 `KeyResult`），
+  所以文本一律捎在 `KeyResult.remote` 上，插件 `exchange()` 里先 `commitString` 它、再插这一键自己的结果。
+  Server 侧同样有 `dispatch/remote.rs`：挑目标会话（最近收过键的，没有就取窗口有焦点的）、先清组句、30 秒过期。
+  **没有「立刻」这一说**：插件空闲时框架不回调，青简这边就没有机会主动插——用户下次动一下输入框（按键或点一下）文本就插上，
+  页面因此显示「已收到，光标可用时上屏」。
 - **Windows（已接）**：命名管道是一问一答，Server **不能主动推帧**（非应答帧会被对端当成上一次请求的应答而错位），
   所以待插入的文本搭既有应答的便车：`Update`（`Poll` 的应答，组句期间每 80 ms）与 `ModeSync`（`SyncMode` 的应答，
   空闲时 320 ms 一次），字段是 `#[serde(default)] Option<String>`，**不用升协议版本**（老 DLL 忽略没见过的字段；
@@ -107,4 +111,7 @@ CRLF 收成一个换行，零宽连接符保留（emoji 序列要用）。清洗
 - **Windows 已接入**（`apps/windows/server/src/dispatch/remote.rs` + `apps/windows/tsf/src/com/service/document.rs`
   + 设置程序「手机输入」页）：服务按 `[remote]` 起停（走既有的配置热加载）、真 HTTP 提交、目标会话挑法、
   两条捎带路径都有测试（`tests/engine_loop/remote.rs`，起真服务打真 HTTP）。**DLL 插入那半边要在 Windows 机器上验**。
-- Linux 未接入（`LinuxEvent` 加一个变体即可，见上面）。
+- **Linux 已接入**（`apps/linux/server/src/dispatch/remote.rs` + 插件的 `exchange()`）：
+  服务在 `serve_socket` 里按 `[remote]` 起停（Linux 没有配置热加载，配置读一次）、`Work` 多了一个 `Remote` 变体
+  （类型放在 `dispatch::work`，不跟着 linux-only 的 `ipc` 模块走）、真 HTTP 提交的测试在 `tests/remote.rs`。
+  **插件那半边（C++）要 Linux 上才验得了。**

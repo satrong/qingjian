@@ -35,6 +35,8 @@ impl Router {
             outcome: KeyOutcome::Consumed,
             commit: None,
             frame: Frame::default(),
+            // 这条应答接的是翻译快捷键，手机推送不搭它（见 remote.rs）
+            remote: None,
         };
         if self.focused != Some(session) || self.pending_selection != Some(request) {
             return empty;
@@ -80,6 +82,7 @@ impl Router {
             outcome,
             commit,
             frame: Frame::default(),
+            remote: None,
         }
     }
 

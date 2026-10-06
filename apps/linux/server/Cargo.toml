@@ -17,6 +17,7 @@ qingjian-learning.workspace = true
 qingjian-lm.workspace = true
 qingjian-neural.workspace = true
 qingjian-platform.workspace = true
+qingjian-remote-web.workspace = true
 qingjian-translate.workspace = true
 serde.workspace = true
 serde_json.workspace = true

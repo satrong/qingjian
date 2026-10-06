@@ -251,6 +251,14 @@ mac `candidates/skin.rs::list()` 与 win 设置 `pages/candidates.rs::list_skins
 与查到的结果 `Available`。`Version` 自己实现语义化版本比较，不引 semver。`[update]` 配置与 `UpdateChannel` 在 `qingjian-platform`。
 `examples/check.rs` 手动走一遍；`tools/release-sign` 是发版侧的 keygen / sign / verify。
 
+### Linux 的接入（`apps/linux/server/src/dispatch/remote.rs`）
+
+服务在 `ipc::serve_socket` 里按 `[remote] 起停（Linux 没有配置热加载，配置读一次；`Router::set_work_sender` 拿通道）。
+文本经 `Work::Remote`（枚举在 `dispatch/work.rs`，不放在 linux-only 的 `ipc` 模块里）进 Router：挑目标会话
+（`focused`，没有就取 `Focus` 事件报过 `active` 的；`private` / `disabled` 一律不做目标）→ 清该会话组句 → 等着捎带。
+**每个 `LinuxEvent` 的回包都是 `KeyResult`**，所以文本一律挂 `KeyResult.remote`；插件 `qingjian.cpp` 的 `exchange()`
+先 `commitString(remote)` 再 `commitString(commit)`。没有定时器那条路——插件空闲时框架不回调，用户下次动输入框才插上。
+
 ### Windows 的接入（`apps/windows/server/src/dispatch/remote.rs`）
 
 服务按 `[remote]` 起停，挂在既有的配置热加载上（`apply_config` → `sync_remote`，`main.rs` 里 `set_work_sender`

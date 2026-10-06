@@ -105,7 +105,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
     let socket = qingjian_linux_server::ipc::socket_path();
     tracing::info!(path = %socket.display(), "青简 Linux Server 启动");
-    qingjian_linux_server::ipc::serve_socket(socket, &mut router)?;
+    qingjian_linux_server::ipc::serve_socket(socket, &mut router, &config)?;
     Ok(())
 }
 fn main() {
