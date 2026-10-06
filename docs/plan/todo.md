@@ -79,6 +79,10 @@
   合理的改法是让选择次数参与位置而不只是决定第一名，属于排序改动，先跑 `--replay` 冻结日志与整句评测再动。
   现成出口：删候选快捷键（缺省 `Shift` + 数字）走的就是 `forget_english`。
 - [ ] 日语 emoji 要等有日语输入模式
+- [x] 声调匹配（2026-10-05，设计见 [docs/design/pinyin-tone.md](../design/pinyin-tone.md)）：调号 `- / = \ .` 内联敲在音节后，
+  硬过滤 + 零命中自动降级，`[general] tone_matching` 缺省关；旁表 `pack tone` 生成（CC-CEDICT CC BY-SA 4.0 词级读音 + Unihan 逐字兜底，
+  92,825 词覆盖 98.7%），全拼 / 双拼 / 注音三套解码都按**输入字母位**换算，测试在 `engine/tests/tone.rs`。
+  还差：Windows 设置页没有开关（v1 改配置文件）、候选里的调号注记没做
 
 ## 二、产品特色
 

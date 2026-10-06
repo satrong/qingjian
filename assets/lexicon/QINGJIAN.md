@@ -52,6 +52,8 @@ uv run tools/corpus/english_frequency.py data/generated/english.tsv -o data/gene
 cargo run --release -p qingjian-dict-convert -- english assets/lexicon/05_english/00_all_words.tsv assets/lexicon/05_english/07_display_forms.tsv --frequency data/generated/english-frequency.tsv
 # 6. 打包（bundle.sh 会自动做；领域词库的 .qj 第 4 步已经写好，bundle.sh 直接拷进 Resources/dicts/）
 cargo run --release -p qingjian-dict-convert -- pack dict --name 青简基础词库 --license "MIT AND Unicode-3.0"
+# 7. 声调旁表（[general] tone_matching 用；源 data/cedict/cedict_ts.u8（CC BY-SA 4.0）+ data/unihan，见 docs/design/pinyin-tone.md）
+cargo run --release -p qingjian-dict-convert -- pack tone
 ```
 
 读音来自 Unihan（`data/unihan/Unihan_Readings.txt`，从 https://www.unicode.org/Public/UCD/latest/ucd/Unihan.zip 解出，Unicode License v3）；

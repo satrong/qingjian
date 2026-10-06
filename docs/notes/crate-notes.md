@@ -23,7 +23,7 @@ TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
 ## crates/qingjian-core
 
 模块：`composition`（缓冲区与光标；中文模式下 Shift+字母按小写进 `buffer` 参与匹配、大写记在 `shifted`，`typed_text` 还原后用于原样上屏）/ `parser` / `correction`（拼写纠错：整段一处编辑的候选纠正 + `typo` 音节级敲错变体表，后者进整句词图当带代价的边）/
-`candidate` / `ranking` / `shortcut` / `sentence` / `fuzzy` / `shuangpin`（双拼：七套方案键位表、键 → 全拼解码与消耗换算）/ `zhuyin`（大千注音：键 → 注音符号 → 拼音，`[general] zhuyin` 开关，声调只判音节完整不进查询）/ `emoji` /
+`candidate` / `ranking` / `shortcut` / `sentence` / `fuzzy` / `shuangpin`（双拼：七套方案键位表、键 → 全拼解码与消耗换算）/ `zhuyin`（大千注音：键 → 注音符号 → 拼音，`[general] zhuyin` 开关，声调键记在 `Unit.tone`——判音节完整，开了声调匹配还参与按调筛）/ `emoji` /
 `english`（英文模式候选）/ `engine`（`query::EnglishTail`：句末英文词并入整句，`woxiangxuehaorust` → 我想学好rust，尾段也像拼音时按分数与拼音读法比）。
 辅码（`engine/aux_code.rs`）：`Engine.aux_code: Option<String>` 是码段（`None` 拼音态，`Some("")` 刚触发或删空停在辅码态——`Engine.aux_keep_empty`，配置 `[general] aux_code_keep_empty` 缺省开），
 不进 `Composition`；`aux_trigger`（配的触发键 + 光标在段尾 + 作用域能完整切分 + 双拼韵母键优先）、`enter_aux`、
@@ -32,6 +32,14 @@ TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
 （码表在 `Engine.aux_codes`，`set_aux_codes` 注入），不命中的隐藏，命中的按「完全匹配码 > 码长降序 > 原词频序」
 重排（stable sort 保住原序），命中码（没在筛码时是词的首条码）写进 `Candidate.aux_code`；码段非空时跳过整句 / 英文 / 快捷 / emoji / 自定义短语
 与云联想。preedit 分段多出 [触发键 `Typed`][码段 `MarkedKind::AuxCode`]，见 `Query::marked_segments`。
+- 声调匹配（`[general] tone_matching`，缺省关）：调号键 `- / = \ .` 内联挂在音节后（`parser` 的 `is_tone_mark` /
+  `segmentable_with_marks` 校验「调号必须挂在字母后」；双拼在 `shuangpin::decode` 顶部把调号附到最后一个单元）。
+  `query::phonetic::typed_tones` 按**输入的小写字母位**数出「位置 → 调」（双拼 / 注音先解码，按 `decoded.segmentation()`
+  逐音节累计读音字母数——按切分位置数会被歧义切分的前缀候选绕过，那版已废弃）；`tone_keeps` 用 `词\t词库拼音` 查
+  `Engine.tone_table`（`set_tone_table`，`AuxCodeTable`）逐音节比码（a–d = 1–4 声、e 轻声、o 未知放行），零命中整轮降级回无声调；
+  词不在表 / 调号落在读音没覆盖的字母位（前缀候选）放行，同词多读音任一码匹配即留。`is_raw` 多看一个 `tone_matching`
+  （开着时 `kai-fan` 是拼音不是 raw；全拼用 `segmentable_with_marks` 判坏、双拼用「调号在字母前」判，注音不进这条分支）。
+  旁表由 `pack tone` 生成，设计与数据源见 `docs/design/pinyin-tone.md`；引擎级测试 `engine/tests/tone.rs`（旁表键必须是 `词\t拼音`）。
 
 形码（五笔）在 `engine::query::code`。`Engine` 上有两个开关：`set_code_table`（码表）与 `set_phonetic`（拼音侧参不参与），
 在 `query_inner` 进切分之前按这两个分派——只有拼音 / 只有形码（`query_code`）/ **两边都开（`query_mixed`，混输）**。
@@ -186,6 +194,8 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 `extra_dictionaries` 列出 / 加载随包领域词库与用户 `dicts/`
 （mac 壳与 Windows Server 共用，同名 `.qj` 优先于 `.tsv`）；`code_tables` 同构地列出 / 加载随包根 `codes/` 与用户 `codes/` 的码表
 （`[aux_code] disabled` 是黑名单，`[general] aux_code_key` 缺省 `;` 且校验后退回缺省、`aux_code_show` 是显示码开关）；
+`code_tables::load_tone_table` 装声调旁表（单文件 `tone.qj`，不在 `codes/` 目录；文件缺失返回 `None` 只告警不打断，
+`[general] tone_matching` 缺省关、开关由各壳 `apply_config` 热更）；
 `GeneralConfig.skin` 是皮肤名（空 = 不用皮肤，模板带说明；平台层只存字符串，读文件与解析在渲染器和各平台壳里，见 `docs/design/skin.md`）；
 `dirs::themes_dir()` 是用户皮肤目录（`user_dir()/themes`，不负责创建）；`Config::write_themes_readme_if_missing(config_path)`
 首次运行在配置旁 `themes/` 写 `README.md`（`THEMES_README` 常量：格式、键名表、最小例子），
@@ -240,6 +250,8 @@ mac `candidates/skin.rs::list()` 与 win 设置 `pages/candidates.rs::list_skins
   并多打一行「辅码选词 N 条，其中同拼音纯输入首选命中 M 条」（学习闭环的尺子）。
 - `--aux-table <路径>`（可多次）装辅码码表（`.qj` 或 `词<Tab>码` TSV）；交互模式与查询模式都按壳的方式逐键喂入，
   配的触发键进辅码态、之后的字母进码段，候选行会带上命中的码。
+- 声调匹配照配置走：`[general] tone_matching` + 随包 `data/generated/tone.qj`（`default_data_file` 找，`code_tables::load_tone_table` 装）；
+  开了但没有旁表会 warn 一条、按「只当拼音键不筛」跑。
 - `--tune 名=值`（逗号分隔）覆盖个人 n-gram 插值与敲错代价的常数扫网格（名字见 `apps/cli/src/tuning.rs`，Core 侧是 `Engine::set_interpolation` / `set_typo_costs`，壳只用缺省值）。
 - `--eval-text <文本>...` 装了码表（`--aux-table`）时多打一行码表覆盖率：词频前 10,000 与全库两段命中比例（与导入统计同源）。
 - `--eval-text <文本>...` 整句评测：把用户自己写的中文文本按标点切句、按词库读音转成全拼，冷启动喂给引擎看整句能不能还原原句
@@ -258,6 +270,8 @@ IMK 输入法，源码按 `app / host / imk / candidates / menubar / preferences
   行列表由 `candidates::list_skins()`（`skin.rs::list()`）给，随包 + 用户两个目录、同 id 用户覆盖。
   输入方案（`[general] scheme`）也在这里装配：双拼 / 注音设给引擎，形码额外按 `paths::code_table_path()` 挂码表
   （用户目录 `wubi/wubi86.tsv` 优先，包里 `Resources/wubi/` 兜底；找不到只警告并按拼音跑）。
+  声调旁表 `Resources/tone.qj` 在 `host/init` 装一次（`code_tables::load_tone_table`，缺了只告警），
+  `[general] tone_matching` 开关随 `apply_config` 热更（`bundle.sh` 有就拷进 Resources）。
 - `apps/macos/scripts/bundle.sh --install` 打包安装到 `~/Library/Input Methods/`（开发用），`--pkg` 做分发用的 pkg（装 `/Library/Input Methods/`，postinstall 跑 `qingjian-macos --register`
   注册、启用并切成当前输入源；签名 / 公证靠 `QINGJIAN_SIGN_IDENTITY` / `QINGJIAN_INSTALLER_IDENTITY` / `QINGJIAN_NOTARY_PROFILE`，没设就 ad-hoc；`QINGJIAN_TARGET` 指定架构，
   成品 `target/pkg/qingjian-<版本>-macos-<arm64|x86_64>.pkg`）；`scripts/uninstall.sh` 卸载。
@@ -295,7 +309,9 @@ Server 侧辅码接线：`RouterConfig.aux_code_key` / `aux_code_show`（`apply_
 UI 线程 `ui/painter` 的 `configure` 在字体或皮肤变化时才重建，候选窗与状态条 `restyle()` 原地重画。设置程序「候选窗口」页的「皮肤」下拉
 （`panel/message.rs::Message::Skin`，第 0 项「默认」= 不用皮肤）建窗时用 `pages/candidates.rs::list_skins()` 列随包 + 用户皮肤。
 分页仍按 `page_size`，皮肤的 `max_rows` 未接（与 mac 的已知差异）。
-输入方案由 `[general] scheme` 一处决定，Server 启动与热加载各装配一次；形码的码表用 `dispatch::code::find_code_table` 找
+输入方案由 `[general] scheme` 一处决定，Server 启动与热加载各装配一次；声调旁表 `data/generated/tone.qj` 在 `main`
+（`code_tables::load_tone_table(generated(&root, …))`）装一次，`[general] tone_matching` 开关随 `dispatch/reload` 的 `apply_config` 热更；
+形码的码表用 `dispatch::code::find_code_table` 找
 （用户目录 `wubi/wubi86.tsv` 优先，随包 `assets/wubi/wubi86.tsv` 兜底——走 `assets/` 与 emoji / levels 一致，开发布局也对得上），**路径在启动时定下、热加载不重新找**。
 选了形码却没有码表文件时只警告并按拼音跑——配置说五笔、引擎还在拼音是静默错位，宁可吵。
 中英模式的两项设置（`[shortcut] switch_mode` 切换键：勾选 shift / control / ctrl+alt+space，`[general] english_mode` 内置英文模式开关）
@@ -367,7 +383,7 @@ DLL 不读文件、不查 mtime。`SessionOpened` 只回过协议版本对得上
 - `mine`：从语料挖词库没收的高频词并过滤（`oov_filter.rs`：虚词规则 + 相邻字对 PMI≥3，`--candidates` 只重过滤）。
 - `phrases`：挖短语层（两遍扫语料：相邻两词、两段二元都够频的相邻三词，总次数与对话语料次数都 ≥ 2000 + 边界规则，读音由成分词拼出；我的 / 不知道 / 有没有 这类常用词表不收的组合，
   `assets/lexicon/phrases.tsv`；词库已并入过短语时重跑加 `--refresh`）。
-- `pack dict|lm|glossary|codes`：打 `.qj`（释义表也进容器；`codes` 是唯一带计算的一种，见下）。
+- `pack dict|lm|glossary|codes|tone`：打 `.qj`（释义表也进容器；`codes` / `tone` 带计算，见下）。
 - `stroke`：CNS11643 全字庫筆順（`data/cns/`，官方 Properties.zip / MapingTables.zip 解出，gitignore）+ 大陆序覆盖表
   `assets/stroke/prc-rules.tsv` → `data/generated/codes/stroke.tsv`（随包笔画表的源数据：7,991 字、127 KB，
   1 横 2 竖 3 撇 5 折 n 点捺；首笔按《通用规范汉字笔顺规范》GF 0023—2020 全对：门字头 / 戶→户 两条前缀规则 + 66 行整字覆盖，阝第二笔随规范改竖）；`--verify` 双对照——笔画数按一级字每 12 字取 1（291 字）、首笔按一级字 3,500 全量，白名单
@@ -378,10 +394,16 @@ DLL 不读文件、不查 mtime。`SessionOpened` 只回过协议版本对得上
   二字 2 码、三字 3 码、四字以上 = 前三字首笔 + 末字首笔；词里有一个字不在笔画表里整词跳过）；
   `--stroke` / `--dict` / `--output` 改路径，元数据缺省「笔画」/ `OFL-1.1` / CNS11643 数位发展部署名（可覆盖），数据版本取笔画表日期。
   2026-09-20 实测：词库 92,821 词条 / 91,904 词，有码 91,773、无码跳过 131，码表 91,773 条 / 3.0 MB。
+- `pack tone`：声调旁表 `data/generated/tone.qj`（`tone/mod.rs`，复用 `AuxCodeTable` 容器）：键 `词\t词库拼音`
+  （与运行时 `hit.text` + `hit.pinyin` 逐字对齐），码为读音逐音节字母 a–e（1–4 声 / 轻声，o 未知），一 key 多码 = 多音词。
+  读音源：CC-CEDICT（`data/cedict/cedict_ts.u8`，CC BY-SA 4.0，词级）优先，Unihan（`data/unihan/Unihan_Readings.txt`，
+  `kMandarin` / `kHanyuPinlu` / `kXHC1983` 三字段，行首 `U+` 前缀）逐字兜底，都没有整词跳过；调号按数字调剥掉后按音节位置
+  重新组合（预组合 + U+0300/0301/0304/030C），`--cedict` / `--unihan` 改路径、`--out-dir` 改输出。
+  2026-10-05 实测：92,825 词、有码 91,598（98.7%）、条目 92,202 / 3.8 MB。设计见 `docs/design/pinyin-tone.md`。
 
 ## apps/linux
 
-`qingjian-linux-server` 为独立产品 `0.1.0-dev`，装配本地 Engine、词库、释义、频率学习、个人 n-gram、词汇记录与可选输入日志，
+`qingjian-linux-server` 为独立产品 `0.1.0-dev`，装配本地 Engine、词库、释义、频率学习、个人 n-gram、词汇记录与可选输入日志，声调旁表 `paths::generated(&root, "tone.qj")` 装一次、`[general] tone_matching` 开关随启动配置读取，
 本地整句模型优先加载用户 `~/.local/share/qingjian/models/hanzhang-tongbian/` 或随包 `data/models/hanzhang-tongbian/`，缺失时回退 `models/hanzhang-zhiwei/`；旧用户目录兼容读取。按 `[model] enabled` 在后台加载、停键 80 ms 后重排，节拍与 Windows Server 的 `dispatch/rescore` 相同；不接云服务。`dispatch/session` 交换每个上下文的 EngineSession；真正的能力变化丢弃输入，普通焦点切换隔离保存。
 默认面板插件仅转换事件，Shift 模式、候选点击、分页和失焦提交都由 Server 决定。
 
