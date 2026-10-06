@@ -12,6 +12,7 @@ mod lookup;
 mod privacy;
 mod raw;
 mod shuangpin;
+mod tone;
 mod zhuyin;
 
 use std::collections::HashMap;

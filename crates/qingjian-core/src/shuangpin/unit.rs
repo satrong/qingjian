@@ -9,6 +9,9 @@ pub struct Unit {
 
     /// 是否是完整音节（两键）。
     pub complete: bool,
+
+    /// 音节后敲的调号（1–5，见 `parser::is_tone_mark`）；没敲、分隔单元为 `None`。
+    pub tone: Option<u8>,
 }
 
 impl Unit {
@@ -17,6 +20,7 @@ impl Unit {
             keys: "'".to_owned(),
             pinyin: String::new(),
             complete: false,
+            tone: None,
         }
     }
 

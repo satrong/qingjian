@@ -163,26 +163,42 @@ impl Scheme {
     /// 末尾落单的一键当声母（或元音）前缀；用户自己敲的 `'` 结束当前配对。
     pub fn decode(self, keys: &str) -> Decoded {
         let chars: Vec<char> = keys.chars().collect();
-        let mut units = Vec::with_capacity(chars.len() / 2 + 1);
+        let mut units: Vec<Unit> = Vec::with_capacity(chars.len() / 2 + 1);
         let mut index = 0;
         while index < chars.len() {
             let first = chars[index];
+            if let Some(tone) = parser::is_tone_mark(first) {
+                // 调号挂在刚解出的音节上（记进 unit.keys，上屏消耗与键串显示都跟得住）；
+                // 前面没有可标的音节（开头、`'` 后）就整个解不动，留作尾巴
+                let Some(unit) = units.iter_mut().rev().find(|u| !u.is_separator()) else {
+                    break;
+                };
+                unit.keys.push(first);
+                unit.tone = Some(tone);
+                index += 1;
+                continue;
+            }
             if first == '\'' {
                 units.push(Unit::separator());
                 index += 1;
                 continue;
             }
-            let second = chars.get(index + 1).copied().filter(|c| *c != '\'');
+            let second = chars
+                .get(index + 1)
+                .copied()
+                .filter(|c| *c != '\'' && parser::is_tone_mark(*c).is_none());
             let unit = match second {
                 Some(second) => self.syllable(first, second).map(|pinyin| Unit {
                     keys: [first, second].iter().collect(),
                     pinyin,
                     complete: true,
+                    tone: None,
                 }),
                 None => self.partial(first).map(|pinyin| Unit {
                     keys: first.to_string(),
                     pinyin,
                     complete: false,
+                    tone: None,
                 }),
             };
             let Some(unit) = unit else {

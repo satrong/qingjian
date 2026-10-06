@@ -1,5 +1,6 @@
 //! 辅码码表：随包的（随包根 `codes/`）与用户目录 `codes/` 下的 `.qj`，按 `[aux_code] disabled` 过滤，
 //! 加载后一起接到 Engine 上。与 `extra_dictionaries` 同构，只是装的是码表。
+//! 声调旁表（`tone.qj`）也在这里装：单张文件、不在 `codes/` 目录，见 [`load_tone_table`]。
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -72,4 +73,26 @@ pub fn load(
         }
     }
     loaded
+}
+
+/// 装声调旁表（`pack tone` 产物 `tone.qj`，键是「词\\t词库拼音」）。文件不存在或读不出来返回
+/// `None` 并记日志：没有旁表时声调匹配只是不收紧候选（调号当拼音键照常），不打断输入。
+pub fn load_tone_table(path: Option<&Path>) -> Option<Arc<AuxCodeTable>> {
+    let path = path?;
+    match AuxCodeTable::open(path) {
+        Ok(table) => {
+            tracing::info!(
+                file = %path.display(),
+                entries = table.len(),
+                words = table.word_count(),
+                license = %table.metadata().map_or("", |m| m.license.as_str()),
+                "声调旁表已加载"
+            );
+            Some(Arc::new(table))
+        }
+        Err(error) => {
+            tracing::warn!(file = %path.display(), %error, "声调旁表加载失败，声调只当拼音键不筛词");
+            None
+        }
+    }
 }

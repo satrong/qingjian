@@ -2,6 +2,8 @@
 
 use super::*;
 
+use crate::engine::decoded::EngineDecoded;
+
 impl Engine {
     /// 拼音侧（全拼 / 双拼 / 注音）的候选生成：整段作用域是一串读音。
     pub(super) fn query_phonetic(
@@ -79,7 +81,12 @@ impl Engine {
         let parse = start.elapsed();
 
         let start = Instant::now();
+        // 调号按「输入里的字母位」记（双拼 / 注音先解码再按读音字母数算），与切分方式无关：
+        // 同一个词从哪条切分路径命中都问同样的调，换个歧义切分漏不掉筛过的词
+        let tones = typed_tones(keys, decoded.as_ref());
         let mut scored = Vec::new();
+        // 声调筛掉的先攒着：全部候选都被筛掉时（零命中）退回无声调结果，不让调号把输入打空
+        let mut rejected: Vec<Scored> = Vec::new();
         // 不同切分共享很多前缀（`zh g d o…` 的各种切法前几段一样），同一次查询里同一个模式只查一遍
         let mut memo: HashMap<String, Vec<Match<'_>>> = HashMap::new();
         for segmentation in &segmentations {
@@ -101,14 +108,19 @@ impl Engine {
             for hit in hits {
                 let full_last = last.complete
                     && hit.syllables().nth(count - 1) == Some(patterns[count - 1].text);
-                scored.push(Scored {
+                let item = Scored {
                     hit,
                     full_last,
                     coverage: segmentation.letters(),
                     abbreviated,
                     weight: self.learner.weight(hit.text),
                     penalty: expanded.penalty(hit.syllables()),
-                });
+                };
+                if self.tone_keeps(&tones, &item.hit) {
+                    scored.push(item);
+                } else {
+                    rejected.push(item);
+                }
             }
             // 输入的前缀也出候选（`kaifazhe` → 开发、开），否则长句没法逐词上屏。
             // 只收音节数正好等于前缀长度的词，更长的词会与输入后面的音节冲突。
@@ -121,7 +133,7 @@ impl Engine {
                     .or_insert_with(|| self.lookup_exact_all(&positions[..prefix_len]));
                 let abbreviated = abbreviated_count(prefix);
                 for hit in hits.iter().copied() {
-                    scored.push(Scored {
+                    let item = Scored {
                         // 对整个输入来说它不是精确命中，只是覆盖了前面一部分
                         hit: Match {
                             exact: false,
@@ -132,9 +144,19 @@ impl Engine {
                         abbreviated,
                         weight: self.learner.weight(hit.text),
                         penalty: expanded.penalty(hit.syllables()),
-                    });
+                    };
+                    if self.tone_keeps(&tones, &item.hit) {
+                        scored.push(item);
+                    } else {
+                        rejected.push(item);
+                    }
                 }
             }
+        }
+        // 敲了调号却一条词都不剩：多半是旁表覆盖不到或读音没对上，降级回无声调的候选
+        if scored.is_empty() && !rejected.is_empty() {
+            tracing::debug!(dropped = rejected.len(), "声调过滤零命中，降级回无声调候选");
+            scored = rejected;
         }
         let lookup = start.elapsed();
 
@@ -254,4 +276,76 @@ impl Engine {
             },
         })
     }
+
+    /// 声调过滤：`tones` 是 [`typed_tones`] 从输入里数出的「字母位 → 调」，`hit` 是词库命中。
+    ///
+    /// 没开声调匹配、没装旁表、没敲任何调号、或这个词（这个读音）不在旁表里都放行——旁表只收紧、不放逐。
+    /// 调号落在这词没覆盖的字母上（前缀候选、简拼）就不问；落在第几个音节上就比第几位码，
+    /// 要求读音的调相同或未知（表里 `o`，比如旁表拿不准的多音字）。
+    /// 同一个词有多种读音时任一读音对上就算（`得` 的 `de2` 与 `de5` 各有一条码）。
+    fn tone_keeps(&self, tones: &[(usize, u8)], hit: &Match<'_>) -> bool {
+        if !self.tone_matching || tones.is_empty() {
+            return true;
+        }
+        let Some(table) = &self.tone_table else {
+            return true;
+        };
+        // 表键是「词 + 空格分隔的词库拼音」（`中国\tzhong guo`），与词目原样对齐
+        let key = format!("{}\t{}", hit.text, hit.pinyin);
+        // 词读音逐音节的起始字母位：调号的字母位换算成第几个音节
+        let mut starts = Vec::new();
+        let mut total = 0usize;
+        for syllable in hit.pinyin.split(' ') {
+            starts.push(total);
+            total += syllable.len();
+        }
+        let mut known = false;
+        for code in table.codes_of(&key) {
+            known = true;
+            let bytes = code.as_bytes();
+            let matched = tones.iter().all(|(position, tone)| {
+                if *position >= total {
+                    return true;
+                }
+                let index = starts
+                    .iter()
+                    .rposition(|start| start <= position)
+                    .unwrap_or(0);
+                bytes
+                    .get(index)
+                    .is_some_and(|b| *b == b'o' || *b == b'a' + tone - 1)
+            });
+            if matched {
+                return true;
+            }
+        }
+        !known
+    }
+}
+
+/// 输入里每个调号落在第几个拼音字母之后（从 0 数），连同调值。
+///
+/// 双拼 / 注音先解码：键数与读音字母数对不上（双拼两键一个音节），按解出的读音逐音节累计；
+/// 全拼直接数输入里的小写字母。调号挂在音节后，位置就是该音节最后一个字母。
+fn typed_tones(keys: &str, decoded: Option<&EngineDecoded>) -> Vec<(usize, u8)> {
+    let mut tones = Vec::new();
+    if let Some(segmentation) = decoded.and_then(|decoded| decoded.segmentation()) {
+        let mut letters = 0usize;
+        for syllable in &segmentation.syllables {
+            letters += syllable.text.len();
+            if let Some(tone) = syllable.tone {
+                tones.push((letters.saturating_sub(1), tone));
+            }
+        }
+        return tones;
+    }
+    let mut letters = 0usize;
+    for c in keys.chars() {
+        if c.is_ascii_lowercase() {
+            letters += 1;
+        } else if let Some(tone) = parser::is_tone_mark(c) {
+            tones.push((letters.saturating_sub(1), tone));
+        }
+    }
+    tones
 }

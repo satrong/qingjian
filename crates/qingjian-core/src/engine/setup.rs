@@ -77,6 +77,27 @@ impl Engine {
         self.aux_show = show;
     }
 
+    /// 换「声调匹配」开关（配置项 `[general] tone_matching`，缺省关）。
+    /// 开着时调号（`-` 一声 / `/` 二声 / `=` 三声 / `\` 四声 / `.` 轻声）当拼音键进缓冲区，
+    /// 并按 [`Self::set_tone_table`] 装的旁表筛词；关着时调号维持英文直输段的原判定。
+    pub fn set_tone_matching(&mut self, enabled: bool) {
+        self.tone_matching = enabled;
+    }
+
+    pub fn tone_matching(&self) -> bool {
+        self.tone_matching
+    }
+
+    /// 挂声调旁表（`pack tone` 产物 `tone.qj`）。只有开了 [`Self::set_tone_matching`] 才参与查询；
+    /// `None`（缺省）= 没有旁表，敲了调号也不筛词（只当拼音键）。
+    pub fn set_tone_table(&mut self, table: Option<Arc<AuxCodeTable>>) {
+        self.tone_table = table;
+    }
+
+    pub fn tone_table(&self) -> Option<&AuxCodeTable> {
+        self.tone_table.as_deref()
+    }
+
     /// 設置是否啟用注音模式。開啟後鍵盤輸入按大千佈局解析。
     /// 学习开关（`[general] learning`）：关掉后不再记词频、用户词、个人 n-gram 与敲错表，已学的照常参与排序；
     /// 私密输入是另一个独立的开关（[`Self::set_private`]）。

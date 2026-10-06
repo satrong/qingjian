@@ -94,6 +94,11 @@ pub struct GeneralConfig {
     /// 关则删空即回纯拼音态。
     pub aux_code_keep_empty: bool,
 
+    /// 声调参与候选匹配（缺省关）：开着时调号键（`-` 一 / `/` 二 / `=` 三 / `\` 四 / `.` 轻声）
+    /// 算拼音键（`ni-hao` 不再整段直输），并按随包 `tone.qj` 旁表收紧候选，全被筛掉时自动退回无声调结果。
+    /// 与翻页键选 `-=` / `,.` 时以翻页为准；注音走自己的声调键，不受它影响。
+    pub tone_matching: bool,
+
     /// 拼音侧方案：`pinyin`（全拼，缺省）/ `xiaohe` / `ziranma` / `microsoft` / `sogou` / `abc` / `xiaolang` / `shoudao` / `zhuyin`
     /// / `none`（关，只用形码），见 [`Scheme`]。用不认识的写法时按全拼并警告。
     /// 缺省是空串：文件里没写这一项时要去看旧键，见 [`Self::scheme`]。
@@ -152,6 +157,7 @@ impl Default for GeneralConfig {
             aux_code_key: qingjian_core::DEFAULT_AUX_CODE_KEY.to_string(),
             aux_code_show: false,
             aux_code_keep_empty: true,
+            tone_matching: false,
             scheme: String::new(),
             shuangpin_raw_preedit: false,
             wubi: String::new(),

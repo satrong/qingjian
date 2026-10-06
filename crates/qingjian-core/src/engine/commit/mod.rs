@@ -481,7 +481,7 @@ impl Engine {
     ) -> Option<Alignment> {
         let Some((syllable, remaining)) = syllables.split_first() else {
             return Some(Alignment {
-                consumed: pos,
+                consumed: skip_trailing_marks(input, pos),
                 typos: typos.clone(),
             });
         };
@@ -509,6 +509,7 @@ impl Engine {
     fn align_greedy(&self, input: &str, syllables: &[String]) -> Alignment {
         let mut alignment = Alignment::default();
         let mut pos = 0;
+        let mut complete = true;
         for syllable in syllables {
             let (rest, start) = self.rest_at(input, pos);
             if let Some((len, typo)) = self.syllable_steps(rest, syllable).into_iter().next() {
@@ -526,24 +527,32 @@ impl Engine {
                 .take_while(|(a, b)| a == b)
                 .count();
             if common == 0 {
+                complete = false;
                 break;
             }
             pos = start + common;
         }
-        alignment.consumed = pos;
-        alignment
-    }
-
-    /// `pos` 处这个音节能看到的输入段（到下一个 `'` 为止）与它的起点（跳过开头的 `'`）。
-    fn rest_at<'a>(&self, input: &'a str, pos: usize) -> (&'a str, usize) {
-        let start = if pos > 0 && input[pos..].starts_with('\'') {
-            pos + 1
+        alignment.consumed = if complete {
+            skip_trailing_marks(input, pos)
         } else {
             pos
         };
+        alignment
+    }
+
+    /// `pos` 处这个音节能看到的输入段（到下一个 `'` 或调号为止）与它的起点（跳过开头的 `'` 与调号）。
+    fn rest_at<'a>(&self, input: &'a str, pos: usize) -> (&'a str, usize) {
+        let mut start = pos;
+        while let Some(c) = input[start..].chars().next()
+            && (c == '\'' || parser::is_tone_mark(c).is_some())
+        {
+            start += c.len_utf8();
+        }
         let rest = &input[start..];
-        let rest = &rest[..rest.find('\'').unwrap_or(rest.len())];
-        (rest, start)
+        let end = rest
+            .find(|c: char| c == '\'' || parser::is_tone_mark(c).is_some())
+            .unwrap_or(rest.len());
+        (&rest[..end], start)
     }
 
     /// 一个音节可以怎么消耗输入段 `rest`：(消耗字节数, 是否靠敲错变体)，按优先级排：
@@ -666,6 +675,17 @@ impl Engine {
 /// 整句路径上的词是英文词（`woxiangxuehaorust` 的 rust）：不是占位音节、全是字母。
 fn is_english_word(word: &sentence::SentenceWord) -> bool {
     !word.placeholder && !word.text.is_empty() && word.text.bytes().all(|b| b.is_ascii_alphabetic())
+}
+
+/// 全部音节对完后吃掉紧跟的调号（`ni-` 选 你 上屏时不留孤零零的 `-`）。
+fn skip_trailing_marks(input: &str, pos: usize) -> usize {
+    let mut end = pos;
+    while let Some(c) = input[end..].chars().next()
+        && parser::is_tone_mark(c).is_some()
+    {
+        end += c.len_utf8();
+    }
+    end
 }
 
 /// 删掉重打的键串算不算「同一段拼音打错了」：都够长、不相等、编辑距离不超过 [`RETYPE_MAX_EDITS`]。

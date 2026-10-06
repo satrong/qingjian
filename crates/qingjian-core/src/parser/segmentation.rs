@@ -10,6 +10,9 @@ pub struct Syllable {
 
     /// 是完整音节；否则是声母（简拼 `k`）或未打完的前缀（`zho`）。
     pub complete: bool,
+
+    /// 音节后敲的调号（1–5，见 [`crate::parser::is_tone_mark`]）；没敲为 `None`。
+    pub tone: Option<u8>,
 }
 
 impl Syllable {
@@ -17,6 +20,7 @@ impl Syllable {
         Self {
             text: text.to_owned(),
             complete: true,
+            tone: None,
         }
     }
 
@@ -24,7 +28,14 @@ impl Syllable {
         Self {
             text: text.to_owned(),
             complete: false,
+            tone: None,
         }
+    }
+
+    /// 给这个音节挂上调号。
+    pub fn with_tone(mut self, tone: u8) -> Self {
+        self.tone = Some(tone);
+        self
     }
 
     pub fn pattern(&self) -> SyllablePattern<'_> {
@@ -79,6 +90,9 @@ impl fmt::Display for Segmentation {
             f.write_str(&syllable.text)?;
             if !syllable.complete {
                 f.write_str("…")?;
+            }
+            if let Some(tone) = syllable.tone {
+                write!(f, "{}", crate::parser::tone_char(tone))?;
             }
         }
         Ok(())

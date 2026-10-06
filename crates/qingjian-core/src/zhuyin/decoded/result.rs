@@ -53,10 +53,14 @@ impl Decoded {
             .iter()
             .filter(|u| u.pinyin != "'")
             .map(|u| {
-                if u.complete {
+                let syllable = if u.complete {
                     ParserSyllable::complete(&u.pinyin)
                 } else {
                     ParserSyllable::partial(&u.pinyin)
+                };
+                match u.tone {
+                    Some(tone) => syllable.with_tone(tone),
+                    None => syllable,
                 }
             })
             .collect();

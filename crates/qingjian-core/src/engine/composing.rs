@@ -6,6 +6,7 @@ use super::learning::Learner;
 use super::mode_keys::QUESTION_PREFIX;
 use super::{Engine, RECENT_COMMITS, is_raw, looks_like_english_word, segment_longest_prefix};
 use crate::composition::Composition;
+use crate::parser;
 use crate::shortcut;
 use std::time::Instant;
 
@@ -228,7 +229,7 @@ impl Engine {
         let before = &self.composition.text()[..cursor];
         let plain =
             self.raw_mode() || self.expression_mode() || self.question_mode() || self.zhuyin;
-        let len = unit_len_before(before, self.shuangpin.is_some(), plain);
+        let len = unit_len_before(before, self.shuangpin.is_some(), plain, self.tone_matching);
         self.composition.delete_before_cursor(len)
     }
 
@@ -238,7 +239,7 @@ impl Engine {
         let before = &self.composition.text()[..cursor];
         let plain =
             self.raw_mode() || self.expression_mode() || self.question_mode() || self.zhuyin;
-        let len = unit_len_before(before, self.shuangpin.is_some(), plain);
+        let len = unit_len_before(before, self.shuangpin.is_some(), plain, self.tone_matching);
         len > 0 && (0..len).all(|_| self.composition.move_left())
     }
 
@@ -248,7 +249,7 @@ impl Engine {
         let after = &self.composition.text()[cursor..];
         let plain =
             self.raw_mode() || self.expression_mode() || self.question_mode() || self.zhuyin;
-        let len = unit_len_after(after, self.shuangpin.is_some(), plain);
+        let len = unit_len_after(after, self.shuangpin.is_some(), plain, self.tone_matching);
         len > 0 && (0..len).all(|_| self.composition.move_right())
     }
 
@@ -291,6 +292,7 @@ impl Engine {
             self.modes(),
             self.shuangpin,
             self.zhuyin,
+            self.tone_matching,
         )
     }
 
@@ -377,9 +379,14 @@ impl Engine {
     }
 }
 
-/// 光标后的第一个「单位」占几个字节：先跳过紧跟的 `'`，再算一个音节；规则同 [`unit_len_before`]。
-fn unit_len_after(after: &str, shuangpin: bool, plain: bool) -> usize {
-    let trimmed = after.trim_start_matches('\'');
+/// 音节的分隔 / 修饰字符：`'` 与（声调匹配开着时的）调号，删音节、跳音节时连它们一起算。
+fn is_separator(c: char, tone: bool) -> bool {
+    c == '\'' || (tone && parser::is_tone_mark(c).is_some())
+}
+
+/// 光标后的第一个「单位」占几个字节：先跳过紧跟的 `'` 与调号，再算一个音节；规则同 [`unit_len_before`]。
+fn unit_len_after(after: &str, shuangpin: bool, plain: bool, tone: bool) -> usize {
+    let trimmed = after.trim_start_matches(|c| is_separator(c, tone));
     let separators = after.len() - trimmed.len();
     let Some(first) = trimmed.chars().next() else {
         return separators;
@@ -413,9 +420,9 @@ fn unit_len_after(after: &str, shuangpin: bool, plain: bool) -> usize {
     separators + syllable
 }
 
-/// 光标前的最后一个「单位」占几个字节：拼音里是一个音节（连同它后面的 `'`），见 [`Engine::delete_syllable_backward`]。
-fn unit_len_before(before: &str, shuangpin: bool, plain: bool) -> usize {
-    let trimmed = before.trim_end_matches('\'');
+/// 光标前的最后一个「单位」占几个字节：拼音里是一个音节（连同它后面的 `'` 与调号），见 [`Engine::delete_syllable_backward`]。
+fn unit_len_before(before: &str, shuangpin: bool, plain: bool, tone: bool) -> usize {
+    let trimmed = before.trim_end_matches(|c| is_separator(c, tone));
     let separators = before.len() - trimmed.len();
     let Some(last) = trimmed.chars().last() else {
         return separators;

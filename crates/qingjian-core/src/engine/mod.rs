@@ -32,7 +32,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use qingjian_dictionary::{AuxCodeLookup, CodeTable, Dictionary, Match, WordList};
+use qingjian_dictionary::{AuxCodeLookup, AuxCodeTable, CodeTable, Dictionary, Match, WordList};
 
 pub use alignment::Alignment;
 pub use annotation::AnnotationReport;
@@ -287,6 +287,14 @@ pub struct Engine {
     /// 辅码码表，壳按用户目录 `codes/` 与配置装配；空表示没装码表（辅码态筛不出任何词）。
     aux_codes: Vec<Arc<dyn AuxCodeLookup>>,
 
+    /// 声调匹配开关（配置 `[general] tone_matching`，缺省关）：开着时调号（[`parser::is_tone_mark`]）
+    /// 才当拼音键进缓冲区、参与切分与候选过滤；关着时它们维持英文直输段的判定不变。
+    tone_matching: bool,
+
+    /// 声调旁表（`word\tpinyin` → 字母编码的调序，见 `pack tone`）：词不在表里或没开
+    /// [`Self::tone_matching`] 时不过滤。壳按随包 `data/generated/tone.qj` 装配。
+    tone_table: Option<Arc<AuxCodeTable>>,
+
     /// 繁体输出模式。
     traditional: bool,
 
@@ -457,6 +465,8 @@ impl Engine {
             aux_code_key: DEFAULT_AUX_CODE_KEY,
             aux_keep_empty: true,
             aux_codes: Vec::new(),
+            tone_matching: false,
+            tone_table: None,
             traditional: false,
             opencc: None,
             traditional_map: std::cell::RefCell::new(HashMap::new()),
@@ -466,7 +476,17 @@ impl Engine {
 
 /// 缓冲区是否是英文直输段：含拼音键与 `'` 以外的字符（`no-way`、`a.b`），且不是表达式 / 问字模式。
 /// 微软 / 搜狗双拼下 `;` 也是拼音键。
-fn is_raw(text: &str, modes: ModeKeys, shuangpin: Option<Scheme>, zhuyin: bool) -> bool {
+///
+/// 声调匹配开着时（[`Engine::set_tone_matching`]）调号（`- / = \ .`）算拼音键：`ni-hao` 不再整段直输；
+/// 但带调号却读不出拼音的串（`no-way`）照旧直输（见 [`parser::segmentable_with_marks`]）。
+fn is_raw(
+    text: &str,
+    modes: ModeKeys,
+    shuangpin: Option<Scheme>,
+    zhuyin: bool,
+    tone: bool,
+) -> bool {
+    let tone = tone && !zhuyin;
     let is_key = |c: char| {
         if zhuyin {
             crate::zhuyin::layout::map_key(c).is_some() || c == ' '
@@ -477,10 +497,35 @@ fn is_raw(text: &str, modes: ModeKeys, shuangpin: Option<Scheme>, zhuyin: bool) 
             }
         }
     };
+    let has_foreign = text
+        .chars()
+        .any(|c| !(is_key(c) || c == '\'' || (tone && parser::is_tone_mark(c).is_some())));
+    let has_mark = tone && text.chars().any(|c| parser::is_tone_mark(c).is_some());
+    // 调号标不到音节就是坏输入：全拼交给切分器判（`-ni`、`ni--`），双拼解码器不分对错、
+    // 只把开头的调号当挂不上音节的（`uixk/` 正常，`-kd` 原样上屏），注音的调号是布局键不走这里
+    let bad_mark = match shuangpin {
+        Some(_) => has_mark && starts_with_mark(text),
+        None => has_mark && !parser::segmentable_with_marks(text),
+    };
     !text.is_empty()
         && !modes.is_expression(text, zhuyin)
         && !modes.is_question(text, zhuyin)
-        && text.chars().any(|c| !(is_key(c) || c == '\''))
+        && (has_foreign || bad_mark)
+}
+
+/// 开头（`'` 之后也算）就出现调号：前面没有音节可挂，双拼里这是坏输入。
+fn starts_with_mark(text: &str) -> bool {
+    let mut saw_key = false;
+    for c in text.chars() {
+        if parser::is_tone_mark(c).is_some() {
+            if !saw_key {
+                return true;
+            }
+        } else if c != '\'' {
+            saw_key = true;
+        }
+    }
+    false
 }
 
 /// 命中是否靠模糊音：某个音节不被敲的那个模式接受。
@@ -552,12 +597,12 @@ fn segment_longest_prefix(text: &str) -> Result<(Vec<Segmentation>, &str), Parse
 ///
 /// 每个音节吃掉输入里与它相同的最长前缀：全拼 `kaifa` 的 开发 吃 5 个，简拼 `kf` 的 开发 吃 2 个，
 /// 未打完的 `kaif` 也吃完。吃不到任何字母说明候选与输入的切分方式不一致，就此停止。
-/// 按输入串记选择用的键：作用域开头 `len` 个字节里的字母（去掉分隔符 `'`），
+/// 按输入串记选择用的键：作用域开头 `len` 个字节里的字母（去掉分隔符 `'` 与调号），
 /// 查询时按候选覆盖的字母数截取同一个串，两边才对得上。
 fn choice_key(scope: &str, len: usize) -> String {
     scope[..len.min(scope.len())]
         .chars()
-        .filter(|c| *c != '\'')
+        .filter(|c| *c != '\'' && parser::is_tone_mark(*c).is_none())
         .collect()
 }
 

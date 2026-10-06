@@ -66,10 +66,14 @@ impl Decoded {
             .iter()
             .filter(|u| !u.is_separator())
             .map(|u| {
-                if u.complete {
+                let syllable = if u.complete {
                     Syllable::complete(&u.pinyin)
                 } else {
                     Syllable::partial(&u.pinyin)
+                };
+                match u.tone {
+                    Some(tone) => syllable.with_tone(tone),
+                    None => syllable,
                 }
             })
             .collect();

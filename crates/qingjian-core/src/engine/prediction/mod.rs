@@ -70,7 +70,13 @@ impl Engine {
         let scope = self.composition.scope();
         if self.english_mode
             || self.modes().is_expression(scope, self.zhuyin)
-            || is_raw(scope, self.modes(), self.shuangpin, self.zhuyin)
+            || is_raw(
+                scope,
+                self.modes(),
+                self.shuangpin,
+                self.zhuyin,
+                self.tone_matching,
+            )
         {
             return None;
         }

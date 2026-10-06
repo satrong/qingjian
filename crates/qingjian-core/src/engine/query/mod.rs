@@ -102,7 +102,13 @@ impl Engine {
         if self.modes().is_question(keys, self.zhuyin) {
             return Ok(self.query_question(keys, rest, start));
         }
-        if is_raw(keys, self.modes(), self.shuangpin, self.zhuyin) {
+        if is_raw(
+            keys,
+            self.modes(),
+            self.shuangpin,
+            self.zhuyin,
+            self.tone_matching,
+        ) {
             return Ok(self.query_raw(keys, rest, start));
         }
         // 形码与拼音是两条平行的管线，在进切分之前分岔。放在这里是为了让 `?` 问字与
