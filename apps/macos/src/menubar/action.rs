@@ -21,6 +21,12 @@ pub enum MenuAction {
 
     /// 打开下载页（菜单里「有新版本」那一行）。
     OpenDownload,
+
+    /// 开关手机推送上屏（`[remote] enabled`）。
+    ToggleRemote,
+
+    /// 打开「手机输入」面板：二维码、地址与状态。
+    OpenRemotePanel,
 }
 
 impl MenuAction {
@@ -30,6 +36,8 @@ impl MenuAction {
             Self::OpenPreferences => 2,
             Self::OpenLogs => 3,
             Self::OpenDownload => 4,
+            Self::ToggleRemote => 5,
+            Self::OpenRemotePanel => 6,
             Self::ToggleFuzzy(index) => FUZZY_TAG_BASE + index as NSInteger,
         }
     }
@@ -40,6 +48,8 @@ impl MenuAction {
             2 => Self::OpenPreferences,
             3 => Self::OpenLogs,
             4 => Self::OpenDownload,
+            5 => Self::ToggleRemote,
+            6 => Self::OpenRemotePanel,
             _ => {
                 let index = usize::try_from(tag.checked_sub(FUZZY_TAG_BASE)?).ok()?;
                 (index < FuzzyRules::NAMES.len()).then_some(Self::ToggleFuzzy(index))?

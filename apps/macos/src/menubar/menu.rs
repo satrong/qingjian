@@ -25,6 +25,12 @@ pub struct InputMenu {
     /// 「有新版本 x.y.z…」，点了打开下载页；没有新版时隐藏。
     update: Retained<NSMenuItem>,
 
+    /// 「手机输入」勾选项。
+    remote: Retained<NSMenuItem>,
+
+    /// 手机输入的状态行（开着时显示地址，坏了时显示原因），平时隐藏。
+    remote_status: Retained<NSMenuItem>,
+
     /// 所有条目的 target，要和菜单活得一样久。
     _target: Retained<MenuTarget>,
 }
@@ -72,6 +78,19 @@ impl InputMenu {
             Some(MenuAction::OpenLogs),
             &target,
         ));
+        // 手机推送上屏：开关与面板挨在一起，面板里能看到二维码与地址
+        let remote = action_item(mtm, "手机输入", Some(MenuAction::ToggleRemote), &target);
+        menu.addItem(&remote);
+        menu.addItem(&action_item(
+            mtm,
+            "手机输入设置…",
+            Some(MenuAction::OpenRemotePanel),
+            &target,
+        ));
+        let remote_status = action_item(mtm, "", None, &target);
+        remote_status.setEnabled(false);
+        remote_status.setHidden(true);
+        menu.addItem(&remote_status);
         // 可点的条目只能放在这一组：放到下面两个纯展示条目之间，IMK 会在每次按键后停用再新建会话，打不了字
         let update = action_item(mtm, "", Some(MenuAction::OpenDownload), &target);
         update.setHidden(true);
@@ -92,6 +111,8 @@ impl InputMenu {
             fuzzy,
             error,
             update,
+            remote,
+            remote_status,
             _target: target,
         }
     }
@@ -113,9 +134,19 @@ impl InputMenu {
         self.menu.clone()
     }
 
+    /// 手机输入开着时在菜单里显示地址，起不来时显示原因，关着时整行藏起来。
+    pub fn sync_remote(&self, enabled: bool, summary: &str) {
+        let shown = enabled || summary.starts_with("起不来");
+        if shown {
+            self.remote_status.setTitle(&NSString::from_str(summary));
+        }
+        self.remote_status.setHidden(!shown);
+    }
+
     /// 按当前配置刷新勾选状态。`cloud_active` 是 Engine 里真接上了 Predictor：
     /// 配置开了但没接上（多半是没密钥）时不打勾，标题说明原因，不能显示开了实际没开。
     pub fn sync(&self, config: &Config, cloud_active: bool, error: Option<&str>) {
+        set_checked(&self.remote, config.remote.enabled);
         let title = match (config.predict.enabled, cloud_active) {
             (true, false) => "云联想（启用失败，见日志）",
             _ => "云联想",

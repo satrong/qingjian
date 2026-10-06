@@ -81,6 +81,9 @@ impl Host {
                 }
             }
             MenuAction::OpenDownload => open_with_system(&[qingjian_update::DOWNLOAD_URL]),
+            MenuAction::ToggleRemote | MenuAction::OpenRemotePanel => {
+                remote::perform_remote(self, action);
+            }
         }
     }
 

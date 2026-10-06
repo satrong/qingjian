@@ -96,4 +96,6 @@ CRLF 收成一个换行，零宽连接符保留（emoji 序列要用）。清洗
 ## 状态
 
 - `crates/qingjian-remote-web`：HTTP、令牌、清洗、限流、单测与端到端测试都已就绪。
-- 三端都还没接（见上面各平台的接入点）。
+- **macOS 已接入**（`apps/macos/src/remote/` + `apps/macos/src/host/remote.rs`）：菜单开关、二维码面板、待插入队列、
+  安全输入与登录窗口守卫。真机验证走过：面板二维码能被解码、HTTP 提交 200、文本在 200 ms 内插进 TextEdit 的光标处。
+- Linux / Windows 未接入（见上面各平台的接入点）。

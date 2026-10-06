@@ -5,7 +5,7 @@ use super::*;
 /// 加载数据并建立单例。必须在主线程、在 IMKServer 建立之前调用。版本显示在菜单末行与「关于」页。
 pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
     let version = info.version.as_str();
-    let settings = Settings::load();
+    let mut settings = Settings::load();
     let started = std::time::Instant::now();
     // 打包过的 .qj 直接映射；没有就解析 TSV（样例词库）
     let dictionary = Dictionary::from_path(
@@ -123,6 +123,8 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
     let menu = InputMenu::new(mtm, version);
     indicator.set_menu(&menu.ns_menu());
     let preferences = PreferencesWindow::new(mtm, &languages, version, &info.build);
+    ensure_remote_token(&mut settings);
+    let remote = RemoteInput::new(mtm, &settings.config().remote);
     let monitor = PredictMonitor::new(mtm);
     let watch = ConfigWatch::new(mtm);
     HOST.with(|host| {
@@ -132,6 +134,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             indicator,
             menu,
             preferences,
+            remote,
             settings,
             watch,
             last_flush: std::time::Instant::now(),
@@ -176,6 +179,17 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
     // 配置里的开关走和菜单 / 设置窗口 / 热加载同一条通路
     with(|host| host.apply_config(false));
     Ok(())
+}
+
+/// 令牌是手机推送的配对凭据，配置里还没有就生成一枚写回去（用户在菜单里第一次开之前就有了）。
+fn ensure_remote_token(settings: &mut Settings) {
+    if !settings.config().remote.token.is_empty() {
+        return;
+    }
+    let token = qingjian_remote_web::Config::generate_token();
+    if settings.set_value("remote", "token", token.as_str()) {
+        tracing::info!("已生成手机输入的配对令牌");
+    }
 }
 
 /// 读用户的学习数据。格式坏掉的行学习 crate 自己跳过；真读不了（权限、坏盘）就退回只在内存里学，

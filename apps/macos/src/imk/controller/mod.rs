@@ -57,6 +57,8 @@ define_class!(
             match (event, client) {
                 (Some(event), Some(client)) => {
                     let client = TextClient::new(client);
+                    // 手机刚推来的文本先插进去，再处理这个按键（此刻一定有 client 可用）
+                    host::with(|host| host.flush_remote(client));
                     // panic 拦下后把缓冲区原样上屏，这个按键交还给应用
                     catch_panic("handleEvent", || self.dispatch_event(event, client))
                         .unwrap_or_else(|| {
@@ -102,6 +104,11 @@ define_class!(
                     h.indicator.activate();
                     h.watch.start();
                 });
+                // 文本框刚拿到焦点：把等待中的手机推送插进去（这里 sender 就是 client）
+                if let Some(sender) = sender {
+                    let client = TextClient::new(sender);
+                    host::with(|h| h.flush_remote(client));
+                }
             });
             if done.is_none() {
                 recover_from_panic(None);
@@ -138,6 +145,7 @@ define_class!(
                     h.watch.stop();
                     h.engine.break_chain();
                     h.engine.flush_learning();
+                    h.end_remote_session();
                     h.last_flush = std::time::Instant::now();
                 });
             });

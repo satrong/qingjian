@@ -22,6 +22,11 @@ impl<'a> TextClient<'a> {
         Self { object }
     }
 
+    /// IMK 传进来的那个对象本身。手机推送上屏要留着它，等没有按键的时候也能插。
+    pub fn object(&self) -> &'a AnyObject {
+        self.object
+    }
+
     /// 设置 marked text（带下划线的未上屏文本），光标放在第 `cursor` 个字符处。空串等于清除。
     pub fn set_marked_text(&self, text: &str, cursor: usize) {
         let string = NSString::from_str(text);

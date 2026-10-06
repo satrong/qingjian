@@ -12,6 +12,7 @@ mod dictionaries;
 mod init;
 mod model;
 mod presenting;
+mod remote;
 mod session;
 mod settings;
 
@@ -47,9 +48,11 @@ use crate::candidates::{
 use crate::error::HostError;
 use crate::menubar::{InputMenu, MenuAction, ModeIndicator};
 use crate::preferences::{PreferencesWindow, Setting, SettingValue, UpdateStatus};
+use crate::remote::RemoteInput;
 
 use cloud::{CloudTestMonitor, PredictMonitor};
 use config::{ConfigWatch, TextReplacement};
+pub(crate) use diagnostics::copy_to_pasteboard;
 pub use dictionaries::DictionaryInfo;
 pub use init::init;
 use model::RescoreMonitor;
@@ -72,6 +75,9 @@ pub struct Host {
 
     /// 偏好设置窗口。
     pub preferences: PreferencesWindow,
+
+    /// 手机推送上屏：服务、待插入队列与配对面板。
+    pub remote: RemoteInput,
 
     /// 配置文件的当前值与修改时间。
     pub settings: Settings,

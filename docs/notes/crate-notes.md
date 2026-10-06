@@ -230,12 +230,36 @@ workspace `[patch.crates-io]` 钉 rev；2026-10-03 起字体实例按（字重�
 mac `candidates/skin.rs::list()` 与 win 设置 `pages/candidates.rs::list_skins()` 都只负责拼「随包 + 用户」两个目录再排序。
 消费方是 mac 壳的 `candidates/skin.rs`（按名字定位 `themes/*.toml`、解析并经 `window.set_skin` 下发，见 `apps/macos` 一节）。
 
+## crates/qingjian-remote-web
+
+手机推送上屏的局域网 Web 服务（设计见 `docs/design/remote-input.md`）：`Server::start(Config, mpsc::Sender<Incoming>)` 绑 `0.0.0.0:<port>`
+（缺省 23333），一个 accept 线程（非阻塞 + 50 ms 轮询，`Drop` 即停，最多等一个轮询周期）+ 每连接一条短命线程，三个路由
+`GET /`（`page.rs` 里内联的一页 HTML）、`GET /status`、`POST /commit`；响应写完就关，不做 keep-alive。请求解析在 `http.rs`：
+只认请求行 + 头 + `Content-Length` 定长 body，头部 8 KiB / body 16 KiB 硬上限，**头部与 body 常在一次 read 里到达，续读只能要差的那段**
+（`read_exact` 是从头填的，算错会白等一次读超时）。`text.rs` 清洗上屏文本：控制字符与双向控制符去掉、CRLF 收成一个换行、空文本判无效。
+
+鉴权只有一枚 128 位令牌（`Config::generate_token`，壳持久化）：`POST` 要求 `X-Qingjian-Token` 头（常量时间比较）+ `Origin` 与 `Host` 同源，
+**永不返回 CORS 头**——自定义头会触发预检，浏览器自己就把跨源请求挡掉了，这是明文 HTTP 下唯一的防线。限流固定窗口 60 次/分。
+`Incoming` 带一个回执通道，壳必须在 `Config::response_timeout`（缺省 800 ms）内 `complete(Outcome)`：`Committed` → 200、
+`NoTarget` / `Rejected` → 409、超时或通道已关 → 503，页面把这几种状态码直接显示成中文原因。`net.rs` 的 `primary_lan_ip` 用 UDP `connect`
+到 TEST-NET-1 让内核选路（不发包、不引依赖，断网返回 `None`），`pair_url` 拼二维码与「复制地址」用的 `http://ip:port/?k=token`，令牌由页面取走存 localStorage 后抹掉地址栏。
+
 ## crates/qingjian-update
 
 检查更新（设计见 `docs/design/update.md`）：`index/` 是索引的类型、下载（`fetch.rs`，复用 workspace 的 reqwest + 单线程 tokio，20 秒超时、2 MB 上限）与验签
 （`signature.rs`，`PUBLIC_KEYS` 列表，`verify_strict`）；`checker/` 是调度（`Checker::poll` 由壳的每秒定时器调，到点起一次性线程）、落盘状态 `UpdateState`（`update.json`，先写临时文件再改名）
 与查到的结果 `Available`。`Version` 自己实现语义化版本比较，不引 semver。`[update]` 配置与 `UpdateChannel` 在 `qingjian-platform`。
 `examples/check.rs` 手动走一遍；`tools/release-sign` 是发版侧的 keygen / sign / verify。
+
+### macOS 的接入（`apps/macos/src/remote/`）
+
+服务线程（crate 内）→ `mpsc` → **泵线程**（普通 std 线程，只挪文本并立即答复手机）→ `Mutex` 里的待插入队列 → **主线程**
+在 `activateServer:` / 按键事件 / 200 ms 的 `NSTimer`（`RemoteInput::start_timer`，加进 `NSRunLoopCommonModes`，
+菜单跟踪时也跑）三种时机插入。client 是 IMK 在会话开始时给的那个对象（`NSTextInputManager.currentClient` 在输入法进程里恒为 nil），
+`deactivateServer:` 清掉，30 秒未等到输入框就丢。面板在 `remote/panel.rs`：二维码走 CoreImage 的 `CIQRCodeGenerator`
+（`inputMessage` 必须是 `NSData`，否则 `outputImage` 抛 ObjC 异常会 abort 进程，所以整段包在 `objc2::exception::catch` 里），
+面板由 Host 调开，里面不再 `host::with`（重入会静默失败），地址由 `RemoteInput::panel_inputs` 算好传进去。
+`[remote]` 在 `qingjian-platform`（`config/remote.rs`），令牌启动时补齐。
 
 ## apps/cli
 
@@ -298,6 +322,8 @@ IMK 输入法，源码按 `app / host / imk / candidates / menubar / preferences
   `set_async_sentence_scorer` 接上，`refresh` 每键先读应用光标前 64 字给 Engine 当前文、查询后 `schedule_rescoring`，`RescoreMonitor` 停键 80 ms 请求、20 ms 轮询，
   结果到了重查一次只重画当前页（翻过页 / 动过高亮不动）；「云服务」页有开关（`[model] enabled`）。
 - 端到端验证可用 `osascript` 的 System Events 往 TextEdit 发按键再读回文本（终端需要辅助功能权限；输入法得在中文模式）。
+
+手机推送上屏（`apps/macos/src/remote/` + `host/remote.rs`）：见上面 `qingjian-remote-web` 一节末尾。
 
 ## apps/windows
 

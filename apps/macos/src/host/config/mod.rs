@@ -96,6 +96,11 @@ impl Host {
             }
             self.applied_model = Some(config.model.clone());
         }
+        // 手机推送上屏：手改 config.toml 也能开关，走同一条热加载通路
+        let mtm = MainThreadMarker::new().expect("配置热加载在主线程");
+        self.remote.sync(mtm, &config.remote);
+        self.menu
+            .sync_remote(config.remote.enabled, &self.remote.summary());
         let cloud_active = self.engine.prediction_enabled();
         self.indicator.set_cloud(cloud_active);
         self.indicator.update();
