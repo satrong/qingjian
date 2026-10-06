@@ -241,8 +241,15 @@ mac `candidates/skin.rs::list()` 与 win 设置 `pages/candidates.rs::list_skins
 鉴权只有一枚 128 位令牌（`Config::generate_token`，壳持久化）：`POST` 要求 `X-Qingjian-Token` 头（常量时间比较）+ `Origin` 与 `Host` 同源，
 **永不返回 CORS 头**——自定义头会触发预检，浏览器自己就把跨源请求挡掉了，这是明文 HTTP 下唯一的防线。限流固定窗口 60 次/分。
 `Incoming` 带一个回执通道，壳必须在 `Config::response_timeout`（缺省 800 ms）内 `complete(Outcome)`：`Committed` → 200、
-`NoTarget` / `Rejected` → 409、超时或通道已关 → 503，页面把这几种状态码直接显示成中文原因。`net.rs` 的 `primary_lan_ip` 用 UDP `connect`
-到 TEST-NET-1 让内核选路（不发包、不引依赖，断网返回 `None`），`pair_url` 拼二维码与「复制地址」用的 `http://ip:port/?k=token`，令牌由页面取走存 localStorage 后抹掉地址栏。
+`NoTarget` / `Rejected` → 409、超时或通道已关 → 503，页面把这几种状态码直接显示成中文原因。`net.rs` 的 `primary_lan_ip`
+用 `if-addrs` 枚举网卡（POSIX `getifaddrs` / Windows `GetAdaptersAddresses`）后排序取第一个：**排掉回环、`0.0.0.0`、`169.254`
+链路本地，再排掉虚拟网卡与隧道（`utun`/`tun`/`tap`/`ppp`/`wg`/`awdl`/`llw`/`bridge`/`veth`/`docker` 这些前缀），
+私有网段（RFC 1918、IPv6 ULA）优先，同分按接口名定序**——同分必须定序，否则面板刷新一次二维码变一次。
+只按默认路由挑是不够的：VPN 一接管默认路由，给出的就是手机连不上的隧道地址（这正是原先 UDP `connect` 兜底的毛病）。
+枚举失败或全被过滤掉时仍退回 UDP `connect` 到 TEST-NET-1 让内核选路（不发包）。注意 `if-addrs` 默认**已经丢掉
+`fe80::` 链路本地**，所以 macOS 上只有 v6 的 `utun`/`awdl` 根本不会进候选表，虚拟网卡前缀那道过滤主要挡 Linux 与 Windows。
+`pick` 拆成纯函数是因为真实网卡表在 CI 与别人机器上都不一样，只能拿构造的表来测。`pair_url` 拼二维码与「复制地址」用的
+`http://ip:port/?k=token`，令牌由页面取走存 localStorage 后抹掉地址栏。
 
 ## crates/qingjian-update
 
@@ -281,7 +288,23 @@ Windows 不画二维码。`tests/engine_loop/remote.rs` 起真服务打真 HTTP 
 `deactivateServer:` 清掉，30 秒未等到输入框就丢。面板在 `remote/panel.rs`：二维码走 CoreImage 的 `CIQRCodeGenerator`
 （`inputMessage` 必须是 `NSData`，否则 `outputImage` 抛 ObjC 异常会 abort 进程，所以整段包在 `objc2::exception::catch` 里），
 面板由 Host 调开，里面不再 `host::with`（重入会静默失败），地址由 `RemoteInput::panel_inputs` 算好传进去。
-`[remote]` 在 `qingjian-platform`（`config/remote.rs`），令牌启动时补齐。
+
+二维码的清晰度分两步，**两步都做才锐**：`qr_gray` 按整数倍放大（每模块占整数个像素）并用 `CISourceOverCompositing`
+合成到白底上（静区补到 4 模块，且产出不透明位图，贴图时不会有 alpha 的不确定性）；`draw_target` 把它按
+**自己的点尺寸**居中贴，不拉满方框。**只做前一步不够**：位图边长是「每模块整数像素」凑出来的，除不尽方框边长
+（37 模块凑不满 260pt@2x 的 520 像素），按方框拉伸就会让模块宽度变成 10/11/22/53 这种参差混搭——比灰边更难察觉。
+`drawRect:` 要主线程、单测跑不到，所以把矩形计算拆成纯函数 `draw_target`，测试再用 `CGBitmapContext` 真画一遍、
+量每段同色游程的宽度是否都是每模块像素数的整数倍（`drawing_the_code_never_stretches_a_module`）。
+只量 CoreImage 出的位图是不够的，缩放发生在贴图那一步——这是上一版漏掉的地方。
+`qr_gray` 只碰 CoreImage 不要求主线程，所以位图本身的测试（有无灰边、静区、模块纯色）能直接在单测里跑。
+
+面板布局（`RemotePanel::new`）是**从 y = `SIZE.height` 起逐项往下减**的手写累加，两个坑都踩过：
+一是码与地址的间隔——写 14pt 时视觉间距其实是 **−1.5pt**（地址标签是 16pt 高的矩形，文字只占上面一小条，
+标签矩形探进二维码那一段并不真的碰到码），必须走 `qr_to_address_offset` 换算，把「视觉间距」和「代码里减的数」
+分开；二维码撑大方框后（`QR_SIZE` 260）位图 259pt、单边只剩 0.5pt 余量，间隔不够就贴上了。
+二是面板高度是手写常量，改了 `QR_SIZE` 或间距忘了同步加高，按钮会掉出窗口。
+两个都有单测守着（`the_address_does_not_touch_the_qr` / `the_panel_is_tall_enough_for_its_contents`），
+后者按布局常量原样重算一遍累加。`[remote]` 在 `qingjian-platform`（`config/remote.rs`），令牌启动时补齐。
 
 ## apps/cli
 
