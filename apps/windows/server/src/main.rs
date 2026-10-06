@@ -5,7 +5,7 @@
 use std::path::{Path, PathBuf};
 
 use qingjian_core::{Engine, Language};
-use qingjian_platform::{Config, ConfigError, LogLevel, resources};
+use qingjian_platform::{Config, ConfigError, LogLevel, code_tables, resources};
 use qingjian_windows_server::assembly::{glossary_file, learning_language};
 use qingjian_windows_server::{
     AssemblySpec, LanguageModelFiles, Router, RouterConfig, ServerError, assembly, dispatch,
@@ -198,6 +198,10 @@ fn main() {
     engine.set_emoji_candidates(config.general.emoji_candidates);
     engine.set_shift_letter_compose(config.general.shift_letter.compose());
     engine.set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
+    engine.set_tone_matching(config.general.tone_matching);
+    engine.set_tone_table(code_tables::load_tone_table(
+        generated(&root, "tone.qj").as_deref(),
+    ));
     engine.log_session(env!("CARGO_PKG_VERSION"), "windows");
     dispatch::attach_cloud(&mut engine, &config.predict);
     let router_config = RouterConfig::from(&config);

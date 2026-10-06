@@ -75,6 +75,10 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
         paths::dicts_dir().as_deref(),
         &settings.config().dictionaries,
     ));
+    // 声调旁表（随包 tone.qj）：没有就不筛词，开关在 apply_config 里按配置切
+    engine.set_tone_table(qingjian_platform::code_tables::load_tone_table(
+        paths::resource("tone.qj").ok().as_deref(),
+    ));
     // 英文候选的中文释义（英→中）可选：没有这张表英文候选右侧就留空
     if let Ok(path) =
         paths::resource("glossary-zh.qj").or_else(|_| paths::resource("glossary-zh.tsv"))

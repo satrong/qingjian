@@ -90,6 +90,8 @@ if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
       --license "CC-BY-SA-4.0 AND MIT" --attribution "中文维基百科（CC BY-SA 4.0）；LCCC（清华大学 CoAI，MIT）"
   fi
   cp data/generated/dict.qj "$APP/Contents/Resources/"
+  # 声调旁表（[general] tone_matching 用，可选：没有就只当拼音键不筛词）
+  [[ -f data/generated/tone.qj ]] && cp data/generated/tone.qj "$APP/Contents/Resources/"
   # 领域词库（lexicon 拆出的 dicts/*.qj）随包放 Resources/dicts/，缺省只开成语，偏好设置「词库」页可勾选
   if ls data/generated/dicts/*.qj >/dev/null 2>&1; then
     mkdir -p "$APP/Contents/Resources/dicts"

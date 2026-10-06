@@ -329,6 +329,15 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
     }
     engine.set_aux_code_key(config.general.aux_code_key(), config.general.page_keys());
     engine.set_aux_keep_empty(config.general.aux_code_keep_empty);
+    // 声调匹配：开关照配置，旁表随包 data/generated/tone.qj（没有就不筛词，调号照常当拼音键）
+    let tone = args::default_data_file("tone.qj");
+    engine.set_tone_matching(config.general.tone_matching);
+    engine.set_tone_table(qingjian_platform::code_tables::load_tone_table(
+        tone.is_file().then_some(tone.as_path()),
+    ));
+    if config.general.tone_matching && !tone.is_file() {
+        tracing::warn!(path = %tone.display(), "开了声调匹配但找不到 tone.qj，只当拼音键不筛词");
+    }
     if !args.aux_table.is_empty() {
         let mut tables: Vec<Arc<dyn AuxCodeLookup>> = Vec::new();
         for path in &args.aux_table {

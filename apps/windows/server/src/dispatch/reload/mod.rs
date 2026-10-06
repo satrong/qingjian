@@ -242,6 +242,8 @@ impl Router {
             .set_shift_letter_compose(config.general.shift_letter.compose());
         self.engine
             .set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
+        // 声调旁表随包装载一次（装配时已挂），这里只切开关
+        self.engine.set_tone_matching(config.general.tone_matching);
         let previous = self.config.render_settings();
         self.config = RouterConfig::from(config);
         let settings = self.config.render_settings();

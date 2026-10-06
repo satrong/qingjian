@@ -82,6 +82,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     engine.set_zhuyin_mode(config.general.is_zhuyin());
     engine.set_shift_letter_compose(config.general.shift_letter.compose());
     engine.set_learning(config.general.learning);
+    engine.set_tone_matching(config.general.tone_matching);
+    engine.set_tone_table(qingjian_platform::code_tables::load_tone_table(
+        paths::generated(&root, "tone.qj").as_deref(),
+    ));
     engine.set_chinese_first(config.general.chinese_first);
     engine.set_chinese_english_candidates(config.general.chinese_english_candidates);
     engine.set_emoji_candidates(config.general.emoji_candidates);
