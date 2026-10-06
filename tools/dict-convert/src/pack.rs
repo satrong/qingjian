@@ -1,5 +1,6 @@
-//! TSV → `.qj`：解析成内存结构后原样落盘，加上元数据；`model` 是三件套目录 → `.qjm`，
-//! `codes` 是唯一带计算的一种（笔画表 + 词库 → 码表，见 `codes` 模块）。
+//! TSV → `.qj`：解析成内存结构后原样落盘，加上元数据；`model` 是三件套目录 → `.qjm`；
+//! 带计算的两种：`codes`（笔画表 + 词库 → 码表，见 `codes` 模块）、`tone`（词库 + CEDICT + Unihan → 声调旁表，
+//! 见 `tone` 模块）。
 
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -25,7 +26,20 @@ const CODES_ATTRIBUTION: &str = "CNS11643 全字庫筆順資料（數位發展�
 /// 来源：全字庫开放数据的数据集页。
 const CODES_SOURCE: &str = "https://data.gov.tw/dataset/5961";
 
-/// `pack codes` 的三个路径（别的种类不给）。都不给时都从 `out_dir` 里找。
+/// 随包声调表的名称（`pack tone` 的元数据缺省值）。
+const TONE_NAME: &str = "声调";
+
+/// 许可：CC-CEDICT 是 CC BY-SA 4.0；Unihan 是 Unicode 许可，随 CC-CEDICT 分发的这份以主源许可标注。
+const TONE_LICENSE: &str = "CC-BY-SA-4.0";
+
+/// 署名：主源 CEDICT 与兜底 Unihan 都要挂名。
+const TONE_ATTRIBUTION: &str = "CC-CEDICT by MDBG (CC BY-SA 4.0); Unihan by the Unicode Consortium";
+
+/// 来源：CC-CEDICT 下载页。
+const TONE_SOURCE: &str = "https://www.mdbg.net/chinese/index.php?page=cedict";
+
+/// `pack codes` / `pack tone` 的额外路径（别的种类不给）。缺省：词库与产物从 `out_dir` 里找，
+/// CEDICT / Unihan 在仓库根的 `data/` 下。
 #[derive(Debug, Default)]
 pub struct CodePaths<'a> {
     /// 笔画表（`stroke` 子命令的产物）。
@@ -34,8 +48,14 @@ pub struct CodePaths<'a> {
     /// 取码用的词库。
     pub dict: Option<&'a Path>,
 
-    /// 码表产物。
+    /// 产物（码表或声调表）。
     pub output: Option<&'a Path>,
+
+    /// `tone` 用：CC-CEDICT 原文。
+    pub cedict: Option<&'a Path>,
+
+    /// `tone` 用：Unihan 逐字读音。
+    pub unihan: Option<&'a Path>,
 }
 
 /// 打包一种数据。`inputs` 为空时从 `out_dir` 里找缺省的 TSV。
@@ -51,8 +71,8 @@ pub fn pack(
         generator: format!("qingjian-dict-convert {}", env!("CARGO_PKG_VERSION")),
         ..metadata
     };
-    // 只有 codes 自己带元数据缺省值（名称、许可、署名都是产品决定），别的种类仍然要显式给。
-    if kind != PackKind::Codes && metadata.name.is_empty() {
+    // codes 与 tone 自带元数据缺省值（名称、许可、署名都是产品决定），别的种类仍然要显式给。
+    if !matches!(kind, PackKind::Codes | PackKind::Tone) && metadata.name.is_empty() {
         return Err(ConvertError::MissingName { kind: kind.name() });
     }
     let started = Instant::now();
@@ -125,6 +145,31 @@ pub fn pack(
                 .unwrap_or_else(|| out_dir.join("codes").join("stroke.qj"));
             crate::codes::build(&stroke, &dict, &out, &codes_metadata(metadata, &stroke))?;
         }
+        PackKind::Tone => {
+            let dict = inputs
+                .first()
+                .cloned()
+                .unwrap_or_else(|| out_dir.join("dict.qj"));
+            let cedict = paths
+                .cedict
+                .map(Path::to_path_buf)
+                .unwrap_or_else(|| PathBuf::from("data/cedict/cedict_ts.u8"));
+            let unihan = paths
+                .unihan
+                .map(Path::to_path_buf)
+                .unwrap_or_else(|| PathBuf::from("data/unihan/Unihan_Readings.txt"));
+            let out = paths
+                .output
+                .map(Path::to_path_buf)
+                .unwrap_or_else(|| out_dir.join("tone.qj"));
+            crate::tone::build(
+                &dict,
+                &cedict,
+                &unihan,
+                &out,
+                &tone_metadata(metadata, &cedict),
+            )?;
+        }
     }
     Ok(())
 }
@@ -147,6 +192,30 @@ fn codes_metadata(mut metadata: Metadata, stroke: &Path) -> Metadata {
     if metadata.version.is_empty() {
         // 上游没有版本号：取笔画表（CNS 筆順資料的快照）的日期当数据版本。
         metadata.version = source_date(stroke)
+            .map(|date| date.to_string())
+            .unwrap_or_default();
+    }
+    metadata
+}
+
+/// `pack tone` 的元数据缺省值：名称、许可、署名、来源都是这份产品数据的决定
+/// （CC-CEDICT 是 CC BY-SA 4.0，依据见 `docs/design/pinyin-tone.md` 的「许可」一节），给了的以给的为准。
+fn tone_metadata(mut metadata: Metadata, cedict: &Path) -> Metadata {
+    if metadata.name.is_empty() {
+        metadata.name = TONE_NAME.to_owned();
+    }
+    if metadata.license.is_empty() {
+        metadata.license = TONE_LICENSE.to_owned();
+    }
+    if metadata.attribution.is_empty() {
+        metadata.attribution = TONE_ATTRIBUTION.to_owned();
+    }
+    if metadata.source.is_empty() {
+        metadata.source = TONE_SOURCE.to_owned();
+    }
+    if metadata.version.is_empty() {
+        // 上游没有版本号：取 CEDICT 快照文件的日期当数据版本。
+        metadata.version = source_date(cedict)
             .map(|date| date.to_string())
             .unwrap_or_default();
     }

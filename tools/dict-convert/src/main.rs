@@ -31,6 +31,7 @@ mod oov_filter;
 mod pack;
 mod phrases;
 mod stroke;
+mod tone;
 mod wubi;
 
 use clap::Parser;
@@ -161,6 +162,8 @@ fn run() -> Result<(), ConvertError> {
             stroke,
             dict,
             output,
+            cedict,
+            unihan,
             name,
             license,
             attribution,
@@ -174,6 +177,8 @@ fn run() -> Result<(), ConvertError> {
                 stroke: stroke.as_deref(),
                 dict: dict.as_deref(),
                 output: output.as_deref(),
+                cedict: cedict.as_deref(),
+                unihan: unihan.as_deref(),
             },
             &language,
             qingjian_format::Metadata {

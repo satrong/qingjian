@@ -191,7 +191,8 @@ pub enum Command {
     /// 把 TSV 打包成 `.qj` 容器（mmap 直接用，启动近零耗时）：`dict` 读 dict.tsv 写 dict.qj，`lm` 读 lm-unigram/bigram.tsv 写 lm.qj，
     /// `glossary --language en` 读 glossary-en.tsv 写 glossary-en.qj；`model` 把导出的三件套目录（缺省 data/models/hanzhang-zhiwei）
     /// 打成一个 .qjm（`--out-dir data/models/hanzhang-zhiwei` 就写回原目录，随包只带这一个文件）；
-    /// `codes` 是唯一不「原样落盘」的一种：读笔画表与词库，按取码规则算成本地码表 codes/stroke.qj（见 codes 模块）
+    /// `codes` 与 `tone` 是唯一不「原样落盘」的两种：`codes` 读笔画表与词库按取码规则算码表 codes/stroke.qj，
+    /// `tone` 读词库 + CC-CEDICT + Unihan 按逐音节调号算声调旁表 tone.qj（见各自模块）
     Pack {
         /// 打包哪种数据
         kind: PackKind,
@@ -212,7 +213,15 @@ pub enum Command {
         #[arg(long)]
         output: Option<PathBuf>,
 
-        /// 元数据：名称（`codes` 缺省「笔画」，别的种类必填）
+        /// `tone` 用：CC-CEDICT 原文；缺省 data/cedict/cedict_ts.u8
+        #[arg(long)]
+        cedict: Option<PathBuf>,
+
+        /// `tone` 用：Unihan 逐字读音（兜底）；缺省 data/unihan/Unihan_Readings.txt
+        #[arg(long)]
+        unihan: Option<PathBuf>,
+
+        /// 元数据：名称（`codes` 缺省「笔画」、`tone` 缺省「声调」，别的种类必填）
         #[arg(long, default_value = "")]
         name: String,
 
@@ -255,6 +264,9 @@ pub enum PackKind {
 
     /// 笔画码表（笔画表 + 词库 → codes/stroke.qj，随包原生码表）
     Codes,
+
+    /// 声调表（词库 + CC-CEDICT + Unihan → data/generated/tone.qj，声调匹配的运行时旁表）
+    Tone,
 }
 
 impl PackKind {
@@ -266,6 +278,7 @@ impl PackKind {
             Self::Glossary => "glossary",
             Self::Model => "model",
             Self::Codes => "codes",
+            Self::Tone => "tone",
         }
     }
 }
