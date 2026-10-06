@@ -74,6 +74,7 @@ impl Component for Settings {
             }
             Message::EmojiCandidates(on) => self.save("general", "emoji_candidates", on),
             Message::ChineseFirst(on) => self.save("general", "chinese_first", on),
+            Message::ToneMatching(on) => self.save("general", "tone_matching", on),
             Message::FullWidthPunctuation(on) => {
                 self.save("general", "full_width_punctuation", on);
             }

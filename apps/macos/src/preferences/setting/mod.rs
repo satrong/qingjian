@@ -138,6 +138,9 @@ pub enum Setting {
     /// `[general] horizontal_grid`，勾选框：横排时上 / 下键展开成多行矩阵。
     HorizontalGrid,
 
+    /// `[general] tone_matching`，勾选框：调号键按声调筛候选。注音模式下不适用。
+    ToneMatching,
+
     /// `[general] shift_letter`，勾选框：中文模式下 Shift+字母进组句（勾上是 compose，否则 passthrough）。
     ShiftLetter,
 
@@ -237,6 +240,7 @@ impl Setting {
             Self::ChineseEnglishCandidates => 59,
             Self::EmojiCandidates => 60,
             Self::ChineseFirst => 42,
+            Self::ToneMatching => 62,
             Self::ShiftLetter => 50,
             Self::HorizontalGrid => 51,
             Self::TranslationKeys => 15,
@@ -309,6 +313,7 @@ impl Setting {
             59 => Self::ChineseEnglishCandidates,
             60 => Self::EmojiCandidates,
             42 => Self::ChineseFirst,
+            62 => Self::ToneMatching,
             50 => Self::ShiftLetter,
             51 => Self::HorizontalGrid,
             15 => Self::TranslationKeys,
@@ -416,6 +421,7 @@ mod tests {
             Setting::SystemTextReplacements,
             Setting::ShiftLetter,
             Setting::HorizontalGrid,
+            Setting::ToneMatching,
             Setting::ClearInputLog,
             Setting::TestCloud,
             Setting::OpenWebsite,

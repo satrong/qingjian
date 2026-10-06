@@ -157,6 +157,16 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .is_on(g.chinese_first)
                 .on_toggled(context.callback(Message::ChineseFirst)),
         ),
+        field(
+            "用调号键按声调筛候选",
+            "开启后调号键跟拼音键（zhi= 三声、ni-hao. 轻声），候选只剩读音相符的词；\
+             一个都不剩时自动退回无声调结果，不会打不出字。\
+             关着（缺省）时 kai-fan 这类输入照旧整段直输。大千注音自带声调键，不受这项影响。",
+            ToggleSwitch::new()
+                .is_on(g.tone_matching)
+                .is_enabled(g.scheme().supports_tone_matching())
+                .on_toggled(context.callback(Message::ToneMatching)),
+        ),
         feedback(&settings.notice),
         field(
             "中文模式下的 Shift + 字母",

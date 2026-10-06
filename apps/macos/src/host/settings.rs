@@ -362,6 +362,9 @@ impl Host {
             (Setting::ChineseFirst, SettingValue::Bool(on)) => {
                 self.settings.set_bool("general", "chinese_first", on);
             }
+            (Setting::ToneMatching, SettingValue::Bool(on)) => {
+                self.settings.set_bool("general", "tone_matching", on);
+            }
             (Setting::ChineseEnglishCandidates, SettingValue::Bool(on)) => {
                 self.settings
                     .set_bool("general", "chinese_english_candidates", on);

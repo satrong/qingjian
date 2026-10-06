@@ -271,7 +271,8 @@ IMK 输入法，源码按 `app / host / imk / candidates / menubar / preferences
   输入方案（`[general] scheme`）也在这里装配：双拼 / 注音设给引擎，形码额外按 `paths::code_table_path()` 挂码表
   （用户目录 `wubi/wubi86.tsv` 优先，包里 `Resources/wubi/` 兜底；找不到只警告并按拼音跑）。
   声调旁表 `Resources/tone.qj` 在 `host/init` 装一次（`code_tables::load_tone_table`，缺了只告警），
-  `[general] tone_matching` 开关随 `apply_config` 热更（`bundle.sh` 有就拷进 Resources）。
+  `[general] tone_matching` 开关随 `apply_config` 热更（`bundle.sh` 有就拷进 Resources）；偏好设置「通用」页有勾选框
+   （`Setting::ToneMatching`，tag 62），按 `Scheme::supports_tone_matching`（全拼 / 双拼可勾，注音与关置灰）禁用。
 - `apps/macos/scripts/bundle.sh --install` 打包安装到 `~/Library/Input Methods/`（开发用），`--pkg` 做分发用的 pkg（装 `/Library/Input Methods/`，postinstall 跑 `qingjian-macos --register`
   注册、启用并切成当前输入源；签名 / 公证靠 `QINGJIAN_SIGN_IDENTITY` / `QINGJIAN_INSTALLER_IDENTITY` / `QINGJIAN_NOTARY_PROFILE`，没设就 ad-hoc；`QINGJIAN_TARGET` 指定架构，
   成品 `target/pkg/qingjian-<版本>-macos-<arm64|x86_64>.pkg`）；`scripts/uninstall.sh` 卸载。

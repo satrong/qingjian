@@ -81,6 +81,11 @@ impl Scheme {
         !matches!(self, Self::Off)
     }
 
+    /// 这套方案下 `[general] tone_matching` 有没有意义：注音自带声调键、关掉拼音侧也没有拼音可筛。
+    pub const fn supports_tone_matching(self) -> bool {
+        matches!(self, Self::Pinyin | Self::Shuangpin(_))
+    }
+
     /// 日志里的写法：全拼为空串（老日志里没有这个字段就是全拼），其余同 [`Self::key`]。
     pub const fn log_key(self) -> &'static str {
         match self {
@@ -146,6 +151,15 @@ mod tests {
         assert_eq!("none".parse::<Scheme>(), Ok(Scheme::Off));
         assert_eq!("off".parse::<Scheme>(), Ok(Scheme::Off));
         assert!("flypy".parse::<Scheme>().is_err());
+    }
+
+    #[test]
+    fn tone_matching_only_applies_to_latin_pinyin_schemes() {
+        assert!(Scheme::Pinyin.supports_tone_matching());
+        for scheme in Scheme::ALL {
+            let expected = matches!(scheme, Scheme::Pinyin | Scheme::Shuangpin(_));
+            assert_eq!(scheme.supports_tone_matching(), expected, "{scheme}");
+        }
     }
 
     #[test]

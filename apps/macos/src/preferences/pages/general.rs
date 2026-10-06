@@ -25,6 +25,8 @@ pub struct GeneralPage {
 
     /// 双拼模式下输入框保留原始输入按键。
     shuangpin_raw_preedit: Retained<NSButton>,
+    /// 调号键按声调筛候选。
+    tone_matching: Retained<NSButton>,
     /// 五笔（86 版形码）；与拼音方案同时开着就是混输。
     wubi: Retained<NSButton>,
 
@@ -117,6 +119,13 @@ impl GeneralPage {
             layout,
             mtm,
             "勾上后双拼模式下输入框（光标处）显示敲击的英文字母，回车可直接上屏；候选窗口顶部的拼音行照旧显示解码全拼。",
+        );
+        let tone_matching = checkbox(mtm, "用调号键按声调筛候选", Setting::ToneMatching, target);
+        row_checkbox(layout, &tone_matching);
+        note(
+            layout,
+            mtm,
+            "勾上后调号键跟拼音键（`zhi=` 三声、`ni-hao.` 轻声），候选只剩读音相符的词；筛空时自动退回无声调结果，不会打不出字。不勾（缺省）时 `kai-fan` 这类输入照旧整段直输。大千注音自带声调键，不受这项影响。",
         );
         let wubi = checkbox(mtm, "五笔（86 版）", Setting::Wubi, target);
         row_checkbox(layout, &wubi);
@@ -213,6 +222,7 @@ impl GeneralPage {
             scheme,
             wubi,
             shuangpin_raw_preedit,
+            tone_matching,
             traditional,
             english,
             english_off_in_apps,
@@ -255,6 +265,9 @@ impl GeneralPage {
         set_checked(&self.shuangpin_raw_preedit, general.shuangpin_raw_preedit);
         self.shuangpin_raw_preedit
             .setEnabled(general.scheme().is_shuangpin());
+        set_checked(&self.tone_matching, general.tone_matching);
+        self.tone_matching
+            .setEnabled(general.scheme().supports_tone_matching());
         set_checked(&self.traditional, general.traditional);
         set_checked(&self.english, general.english_candidates);
         set_checked(

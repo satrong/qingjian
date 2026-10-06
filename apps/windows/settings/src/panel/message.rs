@@ -19,6 +19,8 @@ pub(crate) enum Message {
     /// 候选里出不出表情（中英两个模式一起管）。
     EmojiCandidates(bool),
     ChineseFirst(bool),
+    /// 调号键按声调筛候选（`[general] tone_matching`）。
+    ToneMatching(bool),
     /// 中文模式下 Shift+字母：交给应用（缺省）还是进组句缓冲区。
     ShiftLetter(Option<usize>),
     FullWidthPunctuation(bool),
